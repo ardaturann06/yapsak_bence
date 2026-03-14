@@ -262,7 +262,20 @@ function renderList() {
   const list = filteredTasks();
   taskList.innerHTML = '';
   emptyState.classList.toggle('show', list.length === 0);
-  list.forEach(task => taskList.appendChild(makeTaskItem(task)));
+
+  const active = list.filter(t => !isDone(t));
+  const done   = list.filter(t => isDone(t));
+
+  active.forEach(task => taskList.appendChild(makeTaskItem(task)));
+
+  if (done.length > 0) {
+    const sep = document.createElement('li');
+    sep.className = 'done-section-header';
+    sep.textContent = `Tamamlandı (${done.length})`;
+    taskList.appendChild(sep);
+    done.forEach(task => taskList.appendChild(makeTaskItem(task)));
+  }
+
   initListDrag();
 }
 

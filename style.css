@@ -361,6 +361,17 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   position: relative;
 }
 .task-item:hover { border-color: var(--accent); }
+.done-section-header {
+  list-style: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 14px 4px 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
 .task-item.done { opacity: 0.45; }
 .task-item.done .task-text { text-decoration: line-through; color: var(--text-muted); }
 .task-item.overdue:not(.done) { border-left: 3px solid var(--high) !important; }
