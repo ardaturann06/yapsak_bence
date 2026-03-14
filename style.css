@@ -207,7 +207,7 @@ body {
   border-radius: var(--radius-sm);
   padding: 11px 14px;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1rem;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -815,20 +815,86 @@ select.modal-input {
 .hidden { display: none !important; }
 
 /* ========== MOBILE ========== */
-@media (max-width: 600px) {
-  .kanban-board {
-    grid-template-columns: 1fr;
-  }
-  .modal { width: 100vw; }
+@media (max-width: 640px) {
+
+  /* Header */
+  .header { padding: 18px 0 14px; }
+  .header h1 { font-size: 1.3rem; }
+  .stats-row { gap: 6px; }
+  .stat-pill { font-size: 0.72rem; padding: 2px 8px; }
+
+  /* Toolbar */
+  .toolbar { flex-wrap: wrap; gap: 8px; }
+  .search-wrap { order: 2; flex: 1 1 100%; }
+  .view-btns { order: 1; margin-left: auto; }
+
+  /* Add form */
+  .add-form { padding: 12px; }
   .options-row { flex-wrap: wrap; }
+  .options-row .select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .options-row input[type="date"] { flex: 1 1 100%; }
+
+  /* Filters — horizontal scroll */
+  .filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .filters::-webkit-scrollbar { display: none; }
+  .filter-btn { flex-shrink: 0; padding: 6px 12px; font-size: 0.78rem; }
+
+  /* Task list — always show buttons on touch */
   .task-btn { opacity: 1; }
+  .task-check { width: 24px; height: 24px; min-width: 24px; }
+
+  /* Kanban — horizontal scroll */
+  .kanban-board {
+    grid-template-columns: repeat(3, 80vw);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 8px;
+    gap: 10px;
+  }
+  .kanban-col {
+    scroll-snap-align: start;
+    min-width: 0;
+  }
+
+  /* Modal — full screen bottom sheet */
+  .modal-overlay { align-items: flex-end; }
+  .modal {
+    width: 100vw;
+    height: 92dvh;
+    border-radius: 20px 20px 0 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    animation: slideFromBottom 0.28s cubic-bezier(.4,0,.2,1);
+  }
   .modal-grid { grid-template-columns: 1fr; }
+  .modal-footer { padding: 12px 16px; gap: 8px; }
+  .btn-save, .btn-delete-modal { flex: 1; justify-content: center; padding: 12px; }
+
+  /* Bigger touch targets */
+  .icon-btn { width: 40px; height: 40px; }
+  .view-btn { width: 40px; height: 40px; }
+  .btn-add { min-width: 52px; }
+  .sub-check { width: 20px; height: 20px; min-width: 20px; }
+  .sub-del { opacity: 1; padding: 4px 8px; }
+  .kbtn { padding: 5px 10px; }
+  .kanban-card-actions { opacity: 1; }
 }
 
-@media (max-width: 400px) {
-  .header h1 { font-size: 1.25rem; }
-  .filters { gap: 4px; }
-  .filter-btn { padding: 5px 10px; font-size: 0.75rem; }
+@media (max-width: 380px) {
+  .header h1 { font-size: 1.15rem; }
+  .app { padding: 0 12px 100px; }
+}
+
+@keyframes slideFromBottom {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
 /* ========== SHAKE ========== */
