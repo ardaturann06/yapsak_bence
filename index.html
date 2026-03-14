@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yapsak Bence</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-top">
+        <h1>Yapsak Bence</h1>
+        <div class="header-actions">
+          <button class="icon-btn" id="notif-btn" title="Bildirim izni">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
+          <button class="icon-btn" id="theme-btn" title="Tema değiştir">
+            <svg id="theme-icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg id="theme-icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <span class="progress-text" id="progress-text">0%</span>
+      </div>
+      <div class="stats-row">
+        <span class="stat-pill"><b id="stat-total">0</b> toplam</span>
+        <span class="stat-pill done-pill"><b id="stat-done">0</b> bitti</span>
+        <span class="stat-pill overdue-pill" id="overdue-pill" style="display:none"><b id="stat-overdue">0</b> gecikmiş</span>
+      </div>
+    </header>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="search-input" placeholder="Ara..." autocomplete="off" />
+        <button class="search-clear" id="search-clear" style="display:none">×</button>
+      </div>
+      <div class="view-btns">
+        <button class="view-btn active" data-view="list" title="Liste">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+        <button class="view-btn" data-view="kanban" title="Kanban">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="8" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ADD FORM -->
+    <form class="add-form" id="add-form">
+      <div class="input-row">
+        <input type="text" id="task-input" placeholder="Yeni görev ekle..." maxlength="200" autocomplete="off" />
+        <button type="submit" class="btn btn-add">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+      <div class="options-row">
+        <select id="priority-select" class="select">
+          <option value="normal">Normal</option>
+          <option value="high">🔴 Yüksek</option>
+          <option value="low">🟢 Düşük</option>
+        </select>
+        <select id="category-select" class="select">
+          <option value="genel">Genel</option>
+          <option value="is">İş</option>
+          <option value="kisisel">Kişisel</option>
+          <option value="alisveris">Alışveriş</option>
+          <option value="saglik">Sağlık</option>
+        </select>
+        <input type="date" id="deadline-input" class="select" title="Son tarih" />
+      </div>
+    </form>
+
+    <!-- FILTERS (list view only) -->
+    <div class="filters" id="filters">
+      <button class="filter-btn active" data-filter="all">Tümü</button>
+      <button class="filter-btn" data-filter="todo">Yapılacak</button>
+      <button class="filter-btn" data-filter="inprogress">Devam</button>
+      <button class="filter-btn" data-filter="done">Bitti</button>
+      <button class="filter-btn" data-filter="overdue">⚠ Gecikmiş</button>
+    </div>
+
+    <!-- LIST VIEW -->
+    <div id="list-view">
+      <ul class="task-list" id="task-list"></ul>
+      <div class="empty-state" id="empty-state">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.25"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>
+        <p>Görev bulunamadı</p>
+      </div>
+    </div>
+
+    <!-- KANBAN VIEW -->
+    <div id="kanban-view" class="hidden">
+      <div class="kanban-board">
+        <div class="kanban-col" data-status="todo">
+          <div class="col-header">
+            <span class="col-dot" style="background:#7c6dfa"></span>
+            Yapılacak
+            <span class="col-count" id="count-todo">0</span>
+          </div>
+          <ul class="kanban-list" id="kanban-todo"></ul>
+        </div>
+        <div class="kanban-col" data-status="inprogress">
+          <div class="col-header">
+            <span class="col-dot" style="background:#f8a72a"></span>
+            Devam Ediyor
+            <span class="col-count" id="count-inprogress">0</span>
+          </div>
+          <ul class="kanban-list" id="kanban-inprogress"></ul>
+        </div>
+        <div class="kanban-col" data-status="done">
+          <div class="col-header">
+            <span class="col-dot" style="background:#60d999"></span>
+            Tamamlandı
+            <span class="col-count" id="count-done">0</span>
+          </div>
+          <ul class="kanban-list" id="kanban-done"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-actions" id="bottom-actions">
+      <button class="btn btn-clear" id="clear-done">Tamamlananları Sil</button>
+    </div>
+
+  </div><!-- /app -->
+
+  <!-- TASK DETAIL MODAL -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="task-modal">
+      <div class="modal-header">
+        <input class="modal-title-input" id="modal-title" placeholder="Görev başlığı" maxlength="200" />
+        <button class="icon-btn modal-close-btn" id="modal-close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-section">
+          <label class="modal-label">Notlar</label>
+          <textarea id="modal-notes" placeholder="Açıklama veya notlar..." rows="3"></textarea>
+        </div>
+
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label class="modal-label">Son Tarih</label>
+            <input type="date" id="modal-deadline" class="modal-input" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Hatırlatıcı</label>
+            <input type="datetime-local" id="modal-reminder" class="modal-input" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Öncelik</label>
+            <select id="modal-priority" class="modal-input">
+              <option value="normal">Normal</option>
+              <option value="high">Yüksek</option>
+              <option value="low">Düşük</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Kategori</label>
+            <select id="modal-category" class="modal-input">
+              <option value="genel">Genel</option>
+              <option value="is">İş</option>
+              <option value="kisisel">Kişisel</option>
+              <option value="alisveris">Alışveriş</option>
+              <option value="saglik">Sağlık</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Durum</label>
+            <select id="modal-status" class="modal-input">
+              <option value="todo">Yapılacak</option>
+              <option value="inprogress">Devam Ediyor</option>
+              <option value="done">Tamamlandı</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <label class="modal-label">Etiketler</label>
+          <div class="tags-container" id="tags-container">
+            <input id="tag-input" placeholder="Etiket yaz + Enter" maxlength="30" />
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <div class="subtask-header">
+            <label class="modal-label">Alt Görevler</label>
+            <span class="subtask-progress-text" id="subtask-progress-text"></span>
+          </div>
+          <div class="subtask-progress-bar">
+            <div class="subtask-progress-fill" id="subtask-progress-fill"></div>
+          </div>
+          <ul class="subtasks-list" id="subtasks-list"></ul>
+          <div class="subtask-add-row">
+            <input id="subtask-input" placeholder="Alt görev ekle..." maxlength="150" />
+            <button type="button" class="btn btn-add-sm" id="subtask-add-btn">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-save" id="modal-save">Kaydet</button>
+        <button class="btn btn-delete-modal" id="modal-delete">Görevi Sil</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
