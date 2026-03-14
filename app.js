@@ -620,8 +620,20 @@ async function deleteAllTaskAttachments(taskId) {
 }
 
 // ---- Attachments (canvas compress + subcollection storage) ----
-const MAX_PHOTOS_PER_TASK = 5;
+const MAX_ATTACH_PER_TASK = 10;
+const MAX_FILE_BYTES      = 500 * 1024; // 500 KB limit for non-image files
 const TARGET_PHOTO_BYTES  = 500 * 1024; // target ~500 KB per image (each in own doc)
+
+function fileExt(name) { return (name.split('.').pop() || '').toLowerCase(); }
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 function compressImage(file) {
   return new Promise(resolve => {
@@ -642,7 +654,6 @@ function compressImage(file) {
       canvas.height = height;
       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
 
-      // Reduce JPEG quality until under target (base64 is ~1.37× binary)
       let q = 0.88;
       let dataUrl = canvas.toDataURL('image/jpeg', q);
       while (dataUrl.length > TARGET_PHOTO_BYTES * 1.37 && q > 0.2) {
@@ -665,12 +676,8 @@ async function uploadAttachment(taskId, file) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  if (!file.type.startsWith('image/')) {
-    showAttachHint('Sadece fotoğraf (JPG, PNG, WebP, GIF) eklenebilir.');
-    return;
-  }
-  if ((task.attachments || []).length >= MAX_PHOTOS_PER_TASK) {
-    showAttachHint(`En fazla ${MAX_PHOTOS_PER_TASK} fotoğraf eklenebilir.`);
+  if ((task.attachments || []).length >= MAX_ATTACH_PER_TASK) {
+    showAttachHint(`En fazla ${MAX_ATTACH_PER_TASK} dosya eklenebilir.`);
     return;
   }
 
@@ -679,21 +686,32 @@ async function uploadAttachment(taskId, file) {
   progressWrap.style.display = '';
   progressBar.style.width = '25%';
 
+  const isImage = file.type.startsWith('image/');
   let dataUrl;
-  try {
-    dataUrl = await compressImage(file);
-  } catch(e) {
-    dataUrl = null;
-  }
-  if (!dataUrl) {
-    progressWrap.style.display = 'none';
-    showAttachHint('Fotoğraf işlenemedi.');
-    return;
+
+  if (isImage) {
+    try { dataUrl = await compressImage(file); } catch { dataUrl = null; }
+    if (!dataUrl) {
+      progressWrap.style.display = 'none';
+      showAttachHint('Fotoğraf işlenemedi.');
+      return;
+    }
+  } else {
+    if (file.size > MAX_FILE_BYTES) {
+      progressWrap.style.display = 'none';
+      showAttachHint(`Dosya çok büyük (maks ${Math.round(MAX_FILE_BYTES/1024)} KB).`);
+      return;
+    }
+    try { dataUrl = await fileToBase64(file); } catch {
+      progressWrap.style.display = 'none';
+      showAttachHint('Dosya okunamadı.');
+      return;
+    }
   }
 
   progressBar.style.width = '60%';
 
-  const att  = { id: genId(), name: file.name, type: 'image/jpeg', data: dataUrl, createdAt: new Date().toISOString() };
+  const att  = { id: genId(), name: file.name, type: isImage ? 'image/jpeg' : file.type, data: dataUrl, createdAt: new Date().toISOString() };
   const meta = { id: att.id, name: att.name, type: att.type };
 
   try {
@@ -737,6 +755,12 @@ async function deleteAttachment(taskId, attId) {
   }
 }
 
+function fileTypeLabel(type, name) {
+  if (type && type.startsWith('image/')) return '';
+  const ext = fileExt(name).toUpperCase();
+  return ext || 'FILE';
+}
+
 function renderModalAttachments(attachments) {
   const grid = $('attachments-grid');
   grid.innerHTML = '';
@@ -744,15 +768,29 @@ function renderModalAttachments(attachments) {
   (attachments || []).forEach(att => {
     const item = document.createElement('div');
     item.className = 'attachment-item';
+    const src = att.data || att.url || '';
+    const isImg = att.type && att.type.startsWith('image/');
 
-    const img = document.createElement('img');
-    img.src = att.data || att.url || '';
-    img.className = 'attachment-thumb';
-    img.addEventListener('click', () => {
-      const w = window.open();
-      if (w) w.document.write(`<html><body style="margin:0;background:#000"><img src="${img.src}" style="max-width:100%;height:auto;display:block;margin:auto"></body></html>`);
-    });
-    item.appendChild(img);
+    if (isImg) {
+      const img = document.createElement('img');
+      img.src = src;
+      img.className = 'attachment-thumb';
+      img.addEventListener('click', () => {
+        const w = window.open();
+        if (w) w.document.write(`<html><body style="margin:0;background:#000"><img src="${src}" style="max-width:100%;height:auto;display:block;margin:auto"></body></html>`);
+      });
+      item.appendChild(img);
+    } else {
+      const icon = document.createElement('div');
+      icon.className = 'attachment-icon';
+      const label = fileTypeLabel(att.type, att.name);
+      icon.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="file-ext-label">${label}</span>`;
+      icon.addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = src; a.download = att.name; a.click();
+      });
+      item.appendChild(icon);
+    }
 
     const name = document.createElement('span');
     name.className = 'attachment-name';
