@@ -621,8 +621,8 @@ async function deleteAllTaskAttachments(taskId) {
 
 // ---- Attachments (canvas compress + subcollection storage) ----
 const MAX_ATTACH_PER_TASK = 10;
-const MAX_FILE_BYTES      = 500 * 1024; // 500 KB limit for non-image files
-const TARGET_PHOTO_BYTES  = 500 * 1024; // target ~500 KB per image (each in own doc)
+const MAX_FILE_BYTES      = 700 * 1024; // 700 KB limit for non-image files (base64 ~960 KB < 1 MB Firestore doc limit)
+const TARGET_PHOTO_BYTES  = 700 * 1024; // target ~700 KB per image (each in own doc)
 
 function fileExt(name) { return (name.split('.').pop() || '').toLowerCase(); }
 
@@ -699,7 +699,7 @@ async function uploadAttachment(taskId, file) {
   } else {
     if (file.size > MAX_FILE_BYTES) {
       progressWrap.style.display = 'none';
-      showAttachHint(`Dosya çok büyük (maks ${Math.round(MAX_FILE_BYTES/1024)} KB).`);
+      showAttachHint(`Dosya çok büyük (maks ${Math.round(MAX_FILE_BYTES/1024)} KB — Firestore limiti).`);
       return;
     }
     try { dataUrl = await fileToBase64(file); } catch {
