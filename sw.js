@@ -39,9 +39,9 @@ self.addEventListener('fetch', e => {
   if (url.includes('gstatic.com') || url.includes('firebaseapp.com') || url.includes('googleapis.com')) {
     return;
   }
-  // Network-first for everything — ensures users always get latest files
+  // Network-first with no-cache to bypass CDN stale content
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(e.request, { cache: 'no-cache' }).catch(() => caches.match(e.request))
   );
 });
 
