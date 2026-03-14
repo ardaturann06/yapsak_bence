@@ -3,7 +3,7 @@
    Offline cache + background notifications
    ============================================================ */
 
-const CACHE_NAME = 'yapsak-bence-v3';
+const CACHE_NAME = 'yapsak-bence-v4';
 const CACHE_FILES = [
   './',
   './index.html',
@@ -39,16 +39,9 @@ self.addEventListener('fetch', e => {
   if (url.includes('gstatic.com') || url.includes('firebaseapp.com') || url.includes('googleapis.com')) {
     return;
   }
-  // Network-first for HTML page navigations so users always get latest HTML
-  if (e.request.mode === 'navigate') {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
-    return;
-  }
-  // Cache-first for other assets (CSS, JS, images)
+  // Network-first for everything — ensures users always get latest files
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });
 
