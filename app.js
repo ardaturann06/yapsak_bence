@@ -190,6 +190,7 @@ async function updateTask(id, updates) {
 }
 
 async function deleteTask(id) {
+  await deleteAllTaskAttachments(id).catch(() => {});
   if (currentUser && db) {
     await deleteTaskFromFirestore(id);
     // onSnapshot handles re-render
@@ -407,10 +408,15 @@ function openModal(id) {
 
   renderModalTags(task.tags);
   renderModalSubtasks(task.subtasks);
-  renderModalAttachments(task.attachments || []);
+  renderModalAttachments([]); // cleared first; real data loaded async below
 
   modalOverlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // Load full attachment data (images) asynchronously
+  loadAttachmentsData(id)
+    .then(atts => { if (editingId === id) renderModalAttachments(atts); })
+    .catch(() => {});
 }
 
 function closeModal() {
@@ -545,9 +551,77 @@ function addSubtask() {
   input.focus();
 }
 
-// ---- Attachments (base64 + canvas compress, no Storage plan required) ----
+// ---- Attachment storage helpers ----
+// Images stored in Firestore subcollection (auth) or separate localStorage key (guest)
+// Task doc only keeps metadata {id, name, type} — never image data → no 1MB doc limit issue
+
+function getLocalAttachments(taskId) {
+  try {
+    return (JSON.parse(localStorage.getItem('yapsak-bence-att') || '{}'))[taskId] || [];
+  } catch { return []; }
+}
+
+function setLocalAttachments(taskId, atts) {
+  const store = JSON.parse(localStorage.getItem('yapsak-bence-att') || '{}');
+  store[taskId] = atts;
+  localStorage.setItem('yapsak-bence-att', JSON.stringify(store));
+}
+
+function removeLocalTaskAttachments(taskId) {
+  try {
+    const store = JSON.parse(localStorage.getItem('yapsak-bence-att') || '{}');
+    delete store[taskId];
+    localStorage.setItem('yapsak-bence-att', JSON.stringify(store));
+  } catch {}
+}
+
+function attRef(taskId) {
+  return db.collection('users').doc(currentUser.uid)
+    .collection('tasks').doc(taskId).collection('attachments');
+}
+
+async function loadAttachmentsData(taskId) {
+  if (currentUser && db) {
+    const snap = await attRef(taskId).get();
+    return snap.docs.map(d => d.data());
+  }
+  return getLocalAttachments(taskId);
+}
+
+async function saveAttachmentData(taskId, att) {
+  if (currentUser && db) {
+    await attRef(taskId).doc(att.id).set(att);
+  } else {
+    const atts = getLocalAttachments(taskId);
+    atts.push(att);
+    setLocalAttachments(taskId, atts);
+  }
+}
+
+async function deleteAttachmentData(taskId, attId) {
+  if (currentUser && db) {
+    await attRef(taskId).doc(attId).delete();
+  } else {
+    setLocalAttachments(taskId, getLocalAttachments(taskId).filter(a => a.id !== attId));
+  }
+}
+
+async function deleteAllTaskAttachments(taskId) {
+  if (currentUser && db) {
+    const snap = await attRef(taskId).get();
+    if (snap.docs.length) {
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } else {
+    removeLocalTaskAttachments(taskId);
+  }
+}
+
+// ---- Attachments (canvas compress + subcollection storage) ----
 const MAX_PHOTOS_PER_TASK = 5;
-const TARGET_PHOTO_BYTES  = 180 * 1024; // ~180 KB after compression
+const TARGET_PHOTO_BYTES  = 500 * 1024; // target ~500 KB per image (each in own doc)
 
 function compressImage(file) {
   return new Promise(resolve => {
@@ -558,7 +632,7 @@ function compressImage(file) {
       URL.revokeObjectURL(objUrl);
       const canvas = document.createElement('canvas');
       let { width, height } = img;
-      const maxDim = 1400;
+      const maxDim = 1600;
       if (width > maxDim || height > maxDim) {
         const r = Math.min(maxDim / width, maxDim / height);
         width  = Math.round(width  * r);
@@ -568,10 +642,10 @@ function compressImage(file) {
       canvas.height = height;
       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
 
-      // Reduce quality until under TARGET_PHOTO_BYTES (base64 is ~1.37× binary)
-      let q = 0.85;
+      // Reduce JPEG quality until under target (base64 is ~1.37× binary)
+      let q = 0.88;
       let dataUrl = canvas.toDataURL('image/jpeg', q);
-      while (dataUrl.length > TARGET_PHOTO_BYTES * 1.37 && q > 0.25) {
+      while (dataUrl.length > TARGET_PHOTO_BYTES * 1.37 && q > 0.2) {
         q -= 0.1;
         dataUrl = canvas.toDataURL('image/jpeg', q);
       }
@@ -582,70 +656,90 @@ function compressImage(file) {
   });
 }
 
+function showAttachHint(msg, ms = 3500) {
+  $('upload-hint').textContent = msg;
+  setTimeout(() => { $('upload-hint').textContent = ''; }, ms);
+}
+
 async function uploadAttachment(taskId, file) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
   if (!file.type.startsWith('image/')) {
-    $('upload-hint').textContent = 'Sadece fotoğraf (JPG, PNG, WebP, GIF) eklenebilir.';
-    setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
+    showAttachHint('Sadece fotoğraf (JPG, PNG, WebP, GIF) eklenebilir.');
     return;
   }
-
   if ((task.attachments || []).length >= MAX_PHOTOS_PER_TASK) {
-    $('upload-hint').textContent = `Görev başına en fazla ${MAX_PHOTOS_PER_TASK} fotoğraf eklenebilir.`;
-    setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
+    showAttachHint(`En fazla ${MAX_PHOTOS_PER_TASK} fotoğraf eklenebilir.`);
     return;
   }
 
   const progressWrap = $('upload-progress');
   const progressBar  = $('upload-progress-bar');
   progressWrap.style.display = '';
-  progressBar.style.width = '40%';
+  progressBar.style.width = '25%';
 
-  const dataUrl = await compressImage(file);
+  let dataUrl;
+  try {
+    dataUrl = await compressImage(file);
+  } catch(e) {
+    dataUrl = null;
+  }
   if (!dataUrl) {
     progressWrap.style.display = 'none';
-    $('upload-hint').textContent = 'Fotoğraf işlenemedi.';
-    setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
+    showAttachHint('Fotoğraf işlenemedi.');
     return;
   }
 
-  progressBar.style.width = '85%';
+  progressBar.style.width = '60%';
 
-  const att = { id: genId(), name: file.name, type: 'image/jpeg', data: dataUrl };
+  const att  = { id: genId(), name: file.name, type: 'image/jpeg', data: dataUrl, createdAt: new Date().toISOString() };
+  const meta = { id: att.id, name: att.name, type: att.type };
 
-  if (!task.attachments) task.attachments = [];
-  task.attachments.push(att);
+  try {
+    await saveAttachmentData(taskId, att);           // save image to subcollection/localStorage
+    progressBar.style.width = '90%';
 
-  if (currentUser && db) await saveTaskToFirestore(task);
-  else saveLocalTasks();
+    if (!task.attachments) task.attachments = [];
+    task.attachments.push(meta);                      // save only metadata to task doc
+    if (currentUser && db) await saveTaskToFirestore(task);
+    else saveLocalTasks();
 
-  progressBar.style.width = '100%';
-  setTimeout(() => { progressWrap.style.display = 'none'; }, 300);
+    progressBar.style.width = '100%';
+    setTimeout(() => { progressWrap.style.display = 'none'; }, 300);
 
-  renderModalAttachments(task.attachments);
-  render();
+    const allAtts = await loadAttachmentsData(taskId);
+    if (editingId === taskId) renderModalAttachments(allAtts);
+    render();
+  } catch(err) {
+    console.error('Attachment save error:', err);
+    task.attachments = (task.attachments || []).filter(a => a.id !== att.id);
+    try { await deleteAttachmentData(taskId, att.id); } catch {}
+    progressWrap.style.display = 'none';
+    showAttachHint('Fotoğraf kaydedilemedi: ' + (err.code || err.message || 'hata'), 5000);
+  }
 }
 
 async function deleteAttachment(taskId, attId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
-
-  task.attachments = (task.attachments || []).filter(a => a.id !== attId);
-
-  if (currentUser && db) await saveTaskToFirestore(task);
-  else saveLocalTasks();
-
-  renderModalAttachments(task.attachments);
-  render();
+  try {
+    await deleteAttachmentData(taskId, attId);
+    task.attachments = (task.attachments || []).filter(a => a.id !== attId);
+    if (currentUser && db) await saveTaskToFirestore(task);
+    else saveLocalTasks();
+    const allAtts = await loadAttachmentsData(taskId);
+    if (editingId === taskId) renderModalAttachments(allAtts);
+    render();
+  } catch(err) {
+    console.error('Attachment delete error:', err);
+    showAttachHint('Silinemedi: ' + (err.code || err.message || 'hata'), 5000);
+  }
 }
 
 function renderModalAttachments(attachments) {
   const grid = $('attachments-grid');
-  const hint = $('upload-hint');
   grid.innerHTML = '';
-  hint.textContent = '';
 
   (attachments || []).forEach(att => {
     const item = document.createElement('div');
@@ -656,7 +750,7 @@ function renderModalAttachments(attachments) {
     img.className = 'attachment-thumb';
     img.addEventListener('click', () => {
       const w = window.open();
-      w.document.write(`<img src="${img.src}" style="max-width:100%;height:auto">`);
+      if (w) w.document.write(`<html><body style="margin:0;background:#000"><img src="${img.src}" style="max-width:100%;height:auto;display:block;margin:auto"></body></html>`);
     });
     item.appendChild(img);
 
@@ -1038,6 +1132,8 @@ notifBtn.addEventListener('click', requestNotifPermission);
 
 $('clear-done').addEventListener('click', async () => {
   const doneIds = tasks.filter(isDone).map(t => t.id);
+  // Clean up attachments for each done task
+  await Promise.all(doneIds.map(id => deleteAllTaskAttachments(id).catch(() => {})));
   if (currentUser && db) {
     const batch = db.batch();
     doneIds.forEach(id => {
