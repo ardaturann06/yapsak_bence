@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yapsak Bence</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>Yapsak Bence</h1>
+      <div class="stats">
+        <span id="stats-text">0 görev</span>
+      </div>
+    </header>
+
+    <main class="main">
+      <form class="add-form" id="add-form">
+        <div class="input-row">
+          <input
+            type="text"
+            id="task-input"
+            placeholder="Yeni görev ekle..."
+            maxlength="200"
+            autocomplete="off"
+          />
+          <button type="submit" class="btn btn-add">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="options-row">
+          <select id="priority-select" class="select">
+            <option value="normal">Normal</option>
+            <option value="high">Yüksek Öncelik</option>
+            <option value="low">Düşük Öncelik</option>
+          </select>
+          <select id="category-select" class="select">
+            <option value="genel">Genel</option>
+            <option value="is">İş</option>
+            <option value="kisisel">Kişisel</option>
+            <option value="alisveris">Alışveriş</option>
+            <option value="saglik">Sağlık</option>
+          </select>
+        </div>
+      </form>
+
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all">Tümü</button>
+        <button class="filter-btn" data-filter="active">Yapılacak</button>
+        <button class="filter-btn" data-filter="done">Tamamlanan</button>
+      </div>
+
+      <ul class="task-list" id="task-list"></ul>
+
+      <div class="empty-state" id="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        <p>Henüz görev yok</p>
+      </div>
+
+      <div class="bottom-actions" id="bottom-actions" style="display:none">
+        <button class="btn btn-clear" id="clear-done">Tamamlananları Sil</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
