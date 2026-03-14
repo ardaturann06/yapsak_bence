@@ -61,6 +61,16 @@ body {
   justify-content: space-between;
   margin-bottom: 14px;
 }
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
 
 .header h1 {
   font-size: 1.55rem;
@@ -958,6 +968,7 @@ select.modal-input {
 }
 
 .auth-logo { text-align: center; margin-bottom: 4px; }
+.auth-logo-img { width: 56px; height: 56px; border-radius: 14px; margin-bottom: 10px; }
 .auth-logo h1 {
   font-size: 1.8rem;
   font-weight: 800;
