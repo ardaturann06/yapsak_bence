@@ -1,58 +1,113 @@
 /* ============================================================
    YAPSAK BENCE — app.js
-   Features: CRUD, Kanban, Search, Filter, Tags, Subtasks,
-             Notes, Deadline, Reminder, Drag&Drop, Theme, Notifications
+   Features: Auth (Firebase/Guest), Kanban, Search, Filter,
+             Tags, Subtasks, Notes, Deadline, Reminder,
+             Drag&Drop, Theme, Notifications
    ============================================================ */
 
 const STORAGE_KEY = 'yapsak-bence-v2';
 const THEME_KEY   = 'yapsak-bence-theme';
 
+// ---- Firebase ----
+let firebaseReady = false;
+let auth          = null;
+let db            = null;
+let currentUser   = null;
+let guestMode     = false;
+let fsListener    = null;
+
+function initFirebase() {
+  try {
+    if (!firebaseConfig || firebaseConfig.apiKey === 'BURAYA_API_KEY') return false;
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db   = firebase.firestore();
+    firebaseReady = true;
+    return true;
+  } catch (e) {
+    console.warn('Firebase başlatılamadı:', e.message);
+    return false;
+  }
+}
+
 // ---- State ----
-let tasks        = [];
-let filter       = 'all';
-let view         = 'list';
-let searchQ      = '';
-let editingId    = null;  // modal open for this task id
-let dragSrcId    = null;
-let dragSrcList  = null;
+let tasks    = [];
+let filter   = 'all';
+let view     = 'list';
+let searchQ  = '';
+let editingId   = null;
+let dragSrcId   = null;
+let dragSrcList = null;
 
 // ---- Selectors ----
 const $ = id => document.getElementById(id);
-const addForm         = $('add-form');
-const taskInput       = $('task-input');
-const prioritySelect  = $('priority-select');
-const categorySelect  = $('category-select');
-const deadlineInput   = $('deadline-input');
-const taskList        = $('task-list');
-const emptyState      = $('empty-state');
-const bottomActions   = $('bottom-actions');
-const searchInput     = $('search-input');
-const searchClear     = $('search-clear');
-const progressFill    = $('progress-fill');
-const progressText    = $('progress-text');
-const statTotal       = $('stat-total');
-const statDone        = $('stat-done');
-const statOverdue     = $('stat-overdue');
-const overduePill     = $('overdue-pill');
-const themeBtn        = $('theme-btn');
-const notifBtn        = $('notif-btn');
-const listView        = $('list-view');
-const kanbanView      = $('kanban-view');
-const modalOverlay    = $('modal-overlay');
 
-// ---- Storage ----
-function loadTasks() {
+const addForm        = $('add-form');
+const taskInput      = $('task-input');
+const prioritySelect = $('priority-select');
+const categorySelect = $('category-select');
+const deadlineInput  = $('deadline-input');
+const taskList       = $('task-list');
+const emptyState     = $('empty-state');
+const bottomActions  = $('bottom-actions');
+const searchInput    = $('search-input');
+const searchClear    = $('search-clear');
+const progressFill   = $('progress-fill');
+const progressText   = $('progress-text');
+const statTotal      = $('stat-total');
+const statDone       = $('stat-done');
+const statOverdue    = $('stat-overdue');
+const overduePill    = $('overdue-pill');
+const themeBtn       = $('theme-btn');
+const notifBtn       = $('notif-btn');
+const listView       = $('list-view');
+const kanbanView     = $('kanban-view');
+const modalOverlay   = $('modal-overlay');
+const authOverlay    = $('auth-overlay');
+const userBtn        = $('user-btn');
+
+// ---- Storage (hybrid: Firebase or localStorage) ----
+function loadLocalTasks() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch { return []; }
 }
 
-function saveTasks() {
+function saveLocalTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
+async function saveTaskToFirestore(task) {
+  if (!db || !currentUser) return;
+  await db.collection('users').doc(currentUser.uid)
+    .collection('tasks').doc(task.id).set(task);
+}
+
+async function deleteTaskFromFirestore(id) {
+  if (!db || !currentUser) return;
+  await db.collection('users').doc(currentUser.uid)
+    .collection('tasks').doc(id).delete();
+}
+
+function subscribeFirestore() {
+  if (fsListener) fsListener();
+  fsListener = db.collection('users').doc(currentUser.uid)
+    .collection('tasks').onSnapshot(snap => {
+      tasks = migrate(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      render();
+    });
+}
+
+function saveTasks() {
+  if (guestMode || !currentUser) {
+    saveLocalTasks();
+  }
+  // Firestore saves happen individually via saveTaskToFirestore
+}
+
+// ---- Helpers ----
 function migrate(arr) {
   return arr.map(t => ({
-    id:        t.id        || Date.now().toString(),
+    id:        t.id        || genId(),
     text:      t.text      || '',
     notes:     t.notes     || '',
     priority:  t.priority  || 'normal',
@@ -67,7 +122,6 @@ function migrate(arr) {
   }));
 }
 
-// ---- Helpers ----
 function isDone(t)    { return t.status === 'done'; }
 function isOverdue(t) {
   if (!t.deadline || isDone(t)) return false;
@@ -75,9 +129,9 @@ function isOverdue(t) {
 }
 function fmtDate(iso) {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('tr-TR', { day:'numeric', month:'short' });
+  return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 // ---- Filtering ----
 function filteredTasks() {
@@ -98,7 +152,7 @@ function filteredTasks() {
 }
 
 // ---- CRUD ----
-function addTask(text, priority, category, deadline) {
+async function addTask(text, priority, category, deadline) {
   const task = {
     id: genId(), text: text.trim(), notes: '',
     priority, category, status: 'todo',
@@ -107,32 +161,51 @@ function addTask(text, priority, category, deadline) {
     createdAt: new Date().toISOString(),
     order: tasks.length,
   };
-  tasks.unshift(task);
-  saveTasks();
-  render();
+  if (currentUser && db) {
+    await saveTaskToFirestore(task);
+    // Firestore onSnapshot will re-render
+  } else {
+    tasks.unshift(task);
+    saveLocalTasks();
+    render();
+  }
 }
 
-function updateTask(id, updates) {
+async function updateTask(id, updates) {
   const t = tasks.find(t => t.id === id);
   if (!t) return;
   Object.assign(t, updates);
-  saveTasks();
-  render();
+  if (currentUser && db) {
+    await saveTaskToFirestore(t);
+  } else {
+    saveLocalTasks();
+    render();
+  }
 }
 
-function deleteTask(id) {
-  tasks = tasks.filter(t => t.id !== id);
-  saveTasks();
+async function deleteTask(id) {
+  if (currentUser && db) {
+    await deleteTaskFromFirestore(id);
+    // onSnapshot handles re-render
+  } else {
+    tasks = tasks.filter(t => t.id !== id);
+    saveLocalTasks();
+    if (editingId === id) closeModal();
+    render();
+  }
   if (editingId === id) closeModal();
-  render();
 }
 
-function toggleTask(id) {
+async function toggleTask(id) {
   const t = tasks.find(t => t.id === id);
   if (!t) return;
   t.status = isDone(t) ? 'todo' : 'done';
-  saveTasks();
-  render();
+  if (currentUser && db) {
+    await saveTaskToFirestore(t);
+  } else {
+    saveLocalTasks();
+    render();
+  }
 }
 
 // ---- Stats ----
@@ -142,15 +215,14 @@ function updateStats() {
   const overdue = tasks.filter(isOverdue).length;
   const pct     = total ? Math.round(done / total * 100) : 0;
 
-  statTotal.textContent   = total;
-  statDone.textContent    = done;
-  statOverdue.textContent = overdue;
+  statTotal.textContent    = total;
+  statDone.textContent     = done;
+  statOverdue.textContent  = overdue;
   progressFill.style.width = pct + '%';
   progressText.textContent = pct + '%';
   overduePill.style.display = overdue > 0 ? '' : 'none';
 
-  const hasDone = tasks.some(isDone);
-  bottomActions.classList.toggle('show', hasDone);
+  bottomActions.classList.toggle('show', tasks.some(isDone));
 }
 
 // ---- Render ----
@@ -175,12 +247,10 @@ function makeTaskItem(task) {
   li.dataset.priority = task.priority;
   li.draggable        = true;
 
-  // Checkbox
   const chk = document.createElement('div');
   chk.className = 'task-check' + (isDone(task) ? ' checked' : '');
   chk.addEventListener('click', e => { e.stopPropagation(); toggleTask(task.id); });
 
-  // Content
   const content = document.createElement('div');
   content.className = 'task-content';
   content.style.cursor = 'pointer';
@@ -193,21 +263,12 @@ function makeTaskItem(task) {
   const meta = document.createElement('div');
   meta.className = 'task-meta';
 
-  // Category
-  const catTag = mkTag(task.category, 'tag-cat');
-  meta.appendChild(catTag);
-
-  // Priority
+  meta.appendChild(mkTag(task.category, 'tag-cat'));
   if (task.priority === 'high') meta.appendChild(mkTag('Yüksek', 'tag-pri-high'));
   if (task.priority === 'low')  meta.appendChild(mkTag('Düşük',  'tag-pri-low'));
-
-  // Status badge
   if (task.status === 'inprogress') meta.appendChild(mkTag('Devam', 'tag-inprogress'));
-
-  // Custom tags
   task.tags.slice(0, 3).forEach(tag => meta.appendChild(mkTag(tag, 'tag-custom')));
 
-  // Deadline
   if (task.deadline) {
     const dl = document.createElement('span');
     dl.className = 'task-deadline' + (isOverdue(task) ? ' overdue' : '');
@@ -215,22 +276,17 @@ function makeTaskItem(task) {
     meta.appendChild(dl);
   }
 
-  // Subtasks mini bar
   if (task.subtasks.length > 0) {
     const doneSubs = task.subtasks.filter(s => s.done).length;
     const pct = Math.round(doneSubs / task.subtasks.length * 100);
     const barWrap = document.createElement('div');
     barWrap.className = 'task-subtask-bar';
-    barWrap.innerHTML = `
-      <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%"></div></div>
-      <span class="mini-bar-text">${doneSubs}/${task.subtasks.length}</span>
-    `;
+    barWrap.innerHTML = `<div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%"></div></div><span class="mini-bar-text">${doneSubs}/${task.subtasks.length}</span>`;
     meta.appendChild(barWrap);
   }
 
   content.append(textEl, meta);
 
-  // Actions
   const actions = document.createElement('div');
   actions.className = 'task-actions';
 
@@ -262,8 +318,7 @@ function mkTag(text, cls) {
 function renderKanban() {
   const cols = { todo: $('kanban-todo'), inprogress: $('kanban-inprogress'), done: $('kanban-done') };
   Object.values(cols).forEach(c => c.innerHTML = '');
-
-  let shown = { todo: 0, inprogress: 0, done: 0 };
+  const shown = { todo: 0, inprogress: 0, done: 0 };
   const list = searchQ ? filteredTasks() : tasks;
 
   list.forEach(task => {
@@ -350,7 +405,7 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 
-function saveModal() {
+async function saveModal() {
   if (!editingId) return;
   const task = tasks.find(t => t.id === editingId);
   if (!task) return;
@@ -362,10 +417,16 @@ function saveModal() {
   task.priority = $('modal-priority').value;
   task.category = $('modal-category').value;
   task.status   = $('modal-status').value;
+  task.tags     = [...modalTags];
 
-  saveTasks();
+  if (currentUser && db) {
+    await saveTaskToFirestore(task);
+  } else {
+    saveLocalTasks();
+    render();
+  }
+
   scheduleReminders();
-  render();
   closeModal();
 }
 
@@ -390,15 +451,12 @@ function renderModalTags(tags) {
   });
 
   container.appendChild(input);
-  input.focus();
-
   input.onkeydown = e => {
     if ((e.key === 'Enter' || e.key === ',') && input.value.trim()) {
       e.preventDefault();
       const val = input.value.trim().replace(',', '');
       if (val && !modalTags.includes(val) && modalTags.length < 10) {
         modalTags.push(val);
-        // Sync to task immediately
         const task = tasks.find(t => t.id === editingId);
         if (task) task.tags = [...modalTags];
         renderModalTags(modalTags);
@@ -429,7 +487,10 @@ function renderModalSubtasks(subtasks) {
     chk.addEventListener('click', () => {
       sub.done = !sub.done;
       const task = tasks.find(t => t.id === editingId);
-      if (task) saveTasks();
+      if (task) {
+        if (currentUser && db) saveTaskToFirestore(task);
+        else saveLocalTasks();
+      }
       renderModalSubtasks(subtasks);
     });
 
@@ -443,7 +504,11 @@ function renderModalSubtasks(subtasks) {
     del.addEventListener('click', () => {
       subtasks.splice(i, 1);
       const task = tasks.find(t => t.id === editingId);
-      if (task) { task.subtasks = subtasks; saveTasks(); }
+      if (task) {
+        task.subtasks = subtasks;
+        if (currentUser && db) saveTaskToFirestore(task);
+        else saveLocalTasks();
+      }
       renderModalSubtasks(subtasks);
     });
 
@@ -459,7 +524,8 @@ function addSubtask() {
   const task = tasks.find(t => t.id === editingId);
   if (!task) return;
   task.subtasks.push({ id: genId(), text, done: false });
-  saveTasks();
+  if (currentUser && db) saveTaskToFirestore(task);
+  else saveLocalTasks();
   renderModalSubtasks(task.subtasks);
   input.value = '';
   input.focus();
@@ -470,8 +536,7 @@ function initListDrag() {
   const items = taskList.querySelectorAll('.task-item');
   items.forEach(item => {
     item.addEventListener('dragstart', e => {
-      dragSrcId   = item.dataset.id;
-      dragSrcList = 'list';
+      dragSrcId = item.dataset.id; dragSrcList = 'list';
       setTimeout(() => item.classList.add('dragging'), 0);
       e.dataTransfer.effectAllowed = 'move';
     });
@@ -487,7 +552,7 @@ function initListDrag() {
       if (srcIdx === -1 || destIdx === -1) return;
       const [moved] = tasks.splice(srcIdx, 1);
       tasks.splice(destIdx, 0, moved);
-      saveTasks();
+      saveLocalTasks();
       renderList();
     });
   });
@@ -495,24 +560,19 @@ function initListDrag() {
 
 // ---- Drag & Drop — Kanban ----
 function initKanbanDrag() {
-  const cards = document.querySelectorAll('.kanban-card');
-  const cols  = document.querySelectorAll('.kanban-col');
-
-  cards.forEach(card => {
+  document.querySelectorAll('.kanban-card').forEach(card => {
     card.addEventListener('dragstart', e => {
-      dragSrcId   = card.dataset.id;
-      dragSrcList = 'kanban';
+      dragSrcId = card.dataset.id; dragSrcList = 'kanban';
       setTimeout(() => card.classList.add('dragging'), 0);
       e.dataTransfer.effectAllowed = 'move';
     });
     card.addEventListener('dragend', () => card.classList.remove('dragging'));
     card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-over'); });
     card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
-    card.addEventListener('drop', e => {
+    card.addEventListener('drop', async e => {
       e.preventDefault();
       card.classList.remove('drag-over');
       if (!dragSrcId || dragSrcId === card.dataset.id) return;
-      // reorder within same list
       const srcIdx  = tasks.findIndex(t => t.id === dragSrcId);
       const destIdx = tasks.findIndex(t => t.id === card.dataset.id);
       if (srcIdx !== -1 && destIdx !== -1) {
@@ -520,18 +580,17 @@ function initKanbanDrag() {
         const [moved] = tasks.splice(srcIdx, 1);
         moved.status = destStatus;
         tasks.splice(destIdx, 0, moved);
-        saveTasks();
+        if (currentUser && db) await saveTaskToFirestore(moved);
+        else saveLocalTasks();
         renderKanban();
       }
     });
   });
 
-  cols.forEach(col => {
+  document.querySelectorAll('.kanban-col').forEach(col => {
     col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
-    col.addEventListener('dragleave', e => {
-      if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
-    });
-    col.addEventListener('drop', e => {
+    col.addEventListener('dragleave', e => { if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over'); });
+    col.addEventListener('drop', async e => {
       e.preventDefault();
       col.classList.remove('drag-over');
       if (!dragSrcId || dragSrcList !== 'kanban') return;
@@ -539,7 +598,8 @@ function initKanbanDrag() {
       const task = tasks.find(t => t.id === dragSrcId);
       if (task && task.status !== newStatus) {
         task.status = newStatus;
-        saveTasks();
+        if (currentUser && db) await saveTaskToFirestore(task);
+        else saveLocalTasks();
         renderKanban();
         updateStats();
       }
@@ -553,15 +613,12 @@ function loadTheme() {
   document.documentElement.dataset.theme = saved;
   updateThemeIcon(saved);
 }
-
 function toggleTheme() {
-  const current = document.documentElement.dataset.theme;
-  const next    = current === 'dark' ? 'light' : 'dark';
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   localStorage.setItem(THEME_KEY, next);
   updateThemeIcon(next);
 }
-
 function updateThemeIcon(theme) {
   $('theme-icon-dark').style.display  = theme === 'dark'  ? '' : 'none';
   $('theme-icon-light').style.display = theme === 'light' ? '' : 'none';
@@ -571,41 +628,28 @@ function updateThemeIcon(theme) {
 function requestNotifPermission() {
   if (!('Notification' in window)) return;
   Notification.requestPermission().then(p => {
-    if (p === 'granted') {
-      notifBtn.style.color = 'var(--low)';
-      scheduleReminders();
-    }
+    if (p === 'granted') { notifBtn.style.color = 'var(--low)'; scheduleReminders(); }
   });
 }
-
 function scheduleReminders() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   tasks.forEach(task => {
     if (!task.reminder || isDone(task)) return;
-    const reminderTime = new Date(task.reminder).getTime();
-    const now          = Date.now();
-    const delay        = reminderTime - now;
-    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+    const delay = new Date(task.reminder).getTime() - Date.now();
+    if (delay > 0 && delay < 86400000) {
       setTimeout(() => {
-        new Notification('Yapsak Bence ⏰', {
-          body: task.text,
-          icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">✅</text></svg>'
-        });
+        new Notification('Yapsak Bence ⏰', { body: task.text });
       }, delay);
     }
   });
 }
-
-// Check reminders past due on load
 function checkPastReminders() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const now = Date.now();
   tasks.forEach(task => {
     if (!task.reminder || isDone(task)) return;
     const t = new Date(task.reminder).getTime();
-    if (t <= now && t > now - 60000) {
-      new Notification('Yapsak Bence ⏰', { body: task.text });
-    }
+    if (t <= now && t > now - 60000) new Notification('Yapsak Bence ⏰', { body: task.text });
   });
 }
 
@@ -613,14 +657,128 @@ function checkPastReminders() {
 function switchView(v) {
   view = v;
   document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  const isKanban = v === 'kanban';
-  listView.classList.toggle('hidden', isKanban);
-  kanbanView.classList.toggle('hidden', !isKanban);
-  $('filters').classList.toggle('hidden', isKanban);
+  listView.classList.toggle('hidden', v === 'kanban');
+  kanbanView.classList.toggle('hidden', v !== 'kanban');
+  $('filters').classList.toggle('hidden', v === 'kanban');
   render();
 }
 
-// ---- Event Listeners ----
+// ---- AUTH ----
+function showApp() {
+  authOverlay.classList.add('hidden');
+  userBtn.style.display = '';
+  render();
+}
+
+function showAuth() {
+  authOverlay.classList.remove('hidden');
+  userBtn.style.display = 'none';
+}
+
+function enterGuestMode() {
+  guestMode = true;
+  tasks = migrate(loadLocalTasks());
+  authOverlay.classList.add('hidden');
+  render();
+}
+
+// User menu
+let userMenuOpen = false;
+function buildUserMenu(user) {
+  let menu = document.getElementById('user-menu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.className = 'user-menu';
+    menu.id = 'user-menu';
+    document.body.appendChild(menu);
+  }
+  const name  = user.displayName || user.email || 'Kullanıcı';
+  const email = user.email || '';
+  menu.innerHTML = `
+    <div class="user-menu-info">
+      <div class="user-menu-name">${name}</div>
+      ${email ? `<div class="user-menu-email">${email}</div>` : ''}
+    </div>
+    <button class="user-menu-btn danger" id="btn-signout">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Çıkış Yap
+    </button>
+  `;
+  $('btn-signout').addEventListener('click', () => {
+    auth.signOut();
+    menu.classList.remove('open');
+  });
+  return menu;
+}
+
+// Auth error messages
+function authErr(msg) {
+  const el = $('auth-error');
+  const map = {
+    'auth/invalid-email': 'Geçersiz e-posta adresi.',
+    'auth/user-not-found': 'Bu e-posta ile kayıtlı kullanıcı bulunamadı.',
+    'auth/wrong-password': 'Şifre hatalı.',
+    'auth/email-already-in-use': 'Bu e-posta zaten kullanımda.',
+    'auth/weak-password': 'Şifre en az 6 karakter olmalı.',
+    'auth/popup-closed-by-user': 'Giriş iptal edildi.',
+    'auth/too-many-requests': 'Çok fazla deneme. Lütfen bekleyin.',
+  };
+  el.textContent = map[msg] || 'Bir hata oluştu. Tekrar dene.';
+  setTimeout(() => el.textContent = '', 4000);
+}
+
+// ---- Auth Event Listeners ----
+$('btn-google').addEventListener('click', async () => {
+  if (!firebaseReady) { enterGuestMode(); return; }
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+  } catch (e) { authErr(e.code); }
+});
+
+$('btn-login').addEventListener('click', async () => {
+  if (!firebaseReady) { enterGuestMode(); return; }
+  const email = $('auth-email').value.trim();
+  const pass  = $('auth-password').value;
+  if (!email || !pass) return;
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) { authErr(e.code); }
+});
+
+$('btn-register').addEventListener('click', async () => {
+  if (!firebaseReady) { enterGuestMode(); return; }
+  const email = $('auth-email').value.trim();
+  const pass  = $('auth-password').value;
+  if (!email || !pass) return;
+  try {
+    await auth.createUserWithEmailAndPassword(email, pass);
+  } catch (e) { authErr(e.code); }
+});
+
+$('btn-guest').addEventListener('click', enterGuestMode);
+
+// Enter key on auth inputs
+[$('auth-email'), $('auth-password')].forEach(el => {
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('btn-login').click();
+  });
+});
+
+// User button
+userBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!currentUser) return;
+  const menu = buildUserMenu(currentUser);
+  userMenuOpen = !userMenuOpen;
+  menu.classList.toggle('open', userMenuOpen);
+});
+document.addEventListener('click', () => {
+  const menu = document.getElementById('user-menu');
+  if (menu) { menu.classList.remove('open'); userMenuOpen = false; }
+});
+
+// ---- App Event Listeners ----
 addForm.addEventListener('submit', e => {
   e.preventDefault();
   const text = taskInput.value.trim();
@@ -631,7 +789,7 @@ addForm.addEventListener('submit', e => {
     return;
   }
   addTask(text, prioritySelect.value, categorySelect.value, deadlineInput.value);
-  taskInput.value    = '';
+  taskInput.value = '';
   deadlineInput.value = '';
   taskInput.focus();
 });
@@ -665,32 +823,53 @@ searchClear.addEventListener('click', () => {
 themeBtn.addEventListener('click', toggleTheme);
 notifBtn.addEventListener('click', requestNotifPermission);
 
-$('clear-done').addEventListener('click', () => {
-  tasks = tasks.filter(t => !isDone(t));
-  saveTasks();
-  render();
+$('clear-done').addEventListener('click', async () => {
+  const doneIds = tasks.filter(isDone).map(t => t.id);
+  if (currentUser && db) {
+    const batch = db.batch();
+    doneIds.forEach(id => {
+      batch.delete(db.collection('users').doc(currentUser.uid).collection('tasks').doc(id));
+    });
+    await batch.commit();
+  } else {
+    tasks = tasks.filter(t => !isDone(t));
+    saveLocalTasks();
+    render();
+  }
 });
 
-// Modal events
 $('modal-close').addEventListener('click', closeModal);
 modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
 $('modal-save').addEventListener('click', saveModal);
 $('modal-delete').addEventListener('click', () => { if (editingId) deleteTask(editingId); });
-
 $('subtask-add-btn').addEventListener('click', addSubtask);
-$('subtask-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); addSubtask(); }
-});
-
-// Close modal on Escape
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && editingId) closeModal();
-});
+$('subtask-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && editingId) closeModal(); });
 
 // ---- Init ----
-tasks = migrate(loadTasks());
 loadTheme();
-scheduleReminders();
-checkPastReminders();
-setInterval(checkPastReminders, 30000);
-render();
+
+const fbReady = initFirebase();
+
+if (fbReady) {
+  // Firebase configured: listen for auth state
+  auth.onAuthStateChanged(user => {
+    currentUser = user;
+    if (user) {
+      guestMode = false;
+      subscribeFirestore();
+      showApp();
+      scheduleReminders();
+      setInterval(checkPastReminders, 30000);
+    } else {
+      if (fsListener) { fsListener(); fsListener = null; }
+      tasks = [];
+      showAuth();
+    }
+  });
+} else {
+  // Firebase not configured: go to guest mode automatically
+  enterGuestMode();
+  scheduleReminders();
+  setInterval(checkPastReminders, 30000);
+}
