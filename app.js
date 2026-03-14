@@ -12,6 +12,7 @@ const THEME_KEY   = 'yapsak-bence-theme';
 let firebaseReady = false;
 let auth          = null;
 let db            = null;
+let storage       = null;
 let currentUser   = null;
 let guestMode     = false;
 let fsListener    = null;
@@ -20,8 +21,9 @@ function initFirebase() {
   try {
     if (!firebaseConfig || firebaseConfig.apiKey === 'BURAYA_API_KEY') return false;
     firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db   = firebase.firestore();
+    auth    = firebase.auth();
+    db      = firebase.firestore();
+    storage = firebase.storage();
     firebaseReady = true;
     return true;
   } catch (e) {
@@ -107,18 +109,19 @@ function saveTasks() {
 // ---- Helpers ----
 function migrate(arr) {
   return arr.map(t => ({
-    id:        t.id        || genId(),
-    text:      t.text      || '',
-    notes:     t.notes     || '',
-    priority:  t.priority  || 'normal',
-    category:  t.category  || 'genel',
-    status:    t.status    || (t.done ? 'done' : 'todo'),
-    deadline:  t.deadline  || null,
-    reminder:  t.reminder  || null,
-    tags:      t.tags      || [],
-    subtasks:  t.subtasks  || [],
-    createdAt: t.createdAt || new Date().toISOString(),
-    order:     t.order     ?? 0,
+    id:          t.id          || genId(),
+    text:        t.text        || '',
+    notes:       t.notes       || '',
+    priority:    t.priority    || 'normal',
+    category:    t.category    || 'genel',
+    status:      t.status      || (t.done ? 'done' : 'todo'),
+    deadline:    t.deadline    || null,
+    reminder:    t.reminder    || null,
+    tags:        t.tags        || [],
+    subtasks:    t.subtasks    || [],
+    attachments: t.attachments || [],
+    createdAt:   t.createdAt   || new Date().toISOString(),
+    order:       t.order       ?? 0,
   }));
 }
 
@@ -155,13 +158,14 @@ function filteredTasks() {
 async function addTask(text, priority, category, deadline, extras = {}) {
   const task = {
     id: genId(), text: text.trim(),
-    notes:    extras.notes    || '',
+    notes:       extras.notes    || '',
     priority, category,
-    status:   extras.status   || 'todo',
-    deadline: deadline        || null,
-    reminder: extras.reminder || null,
-    tags:     extras.tags     || [],
-    subtasks: [],
+    status:      extras.status   || 'todo',
+    deadline:    deadline        || null,
+    reminder:    extras.reminder || null,
+    tags:        extras.tags     || [],
+    subtasks:    [],
+    attachments: [],
     createdAt: new Date().toISOString(),
     order: tasks.length,
   };
@@ -289,6 +293,13 @@ function makeTaskItem(task) {
     meta.appendChild(barWrap);
   }
 
+  if (task.attachments && task.attachments.length > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'task-attachment-badge';
+    badge.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${task.attachments.length}`;
+    meta.appendChild(badge);
+  }
+
   content.append(textEl, meta);
 
   const actions = document.createElement('div');
@@ -398,6 +409,7 @@ function openModal(id) {
 
   renderModalTags(task.tags);
   renderModalSubtasks(task.subtasks);
+  renderModalAttachments(task.attachments || []);
 
   modalOverlay.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -533,6 +545,133 @@ function addSubtask() {
   renderModalSubtasks(task.subtasks);
   input.value = '';
   input.focus();
+}
+
+// ---- Attachments ----
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadAttachment(taskId, file) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const att = { id: genId(), name: file.name, type: file.type, size: file.size };
+  const progressWrap = $('upload-progress');
+  const progressBar  = $('upload-progress-bar');
+
+  if (currentUser && storage) {
+    // Firebase Storage
+    const path = `users/${currentUser.uid}/tasks/${taskId}/${att.id}_${file.name}`;
+    const ref   = storage.ref(path);
+    progressWrap.style.display = '';
+    progressBar.style.width = '0%';
+
+    const uploadTask = ref.put(file);
+    await new Promise((resolve, reject) => {
+      uploadTask.on('state_changed',
+        snap => {
+          const pct = Math.round(snap.bytesTransferred / snap.totalBytes * 100);
+          progressBar.style.width = pct + '%';
+        },
+        reject,
+        resolve
+      );
+    });
+
+    att.url         = await ref.getDownloadURL();
+    att.storagePath = path;
+    progressWrap.style.display = 'none';
+  } else {
+    // Guest mode: base64, max 2 MB
+    if (file.size > 2 * 1024 * 1024) {
+      $('upload-hint').textContent = 'Misafir modunda en fazla 2 MB dosya eklenebilir.';
+      setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
+      return;
+    }
+    att.url = await fileToBase64(file);
+  }
+
+  if (!task.attachments) task.attachments = [];
+  task.attachments.push(att);
+
+  if (currentUser && db) await saveTaskToFirestore(task);
+  else saveLocalTasks();
+
+  renderModalAttachments(task.attachments);
+  render();
+}
+
+async function deleteAttachment(taskId, attId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const att = (task.attachments || []).find(a => a.id === attId);
+  if (!att) return;
+
+  if (att.storagePath && storage) {
+    try { await storage.ref(att.storagePath).delete(); } catch(_) {}
+  }
+
+  task.attachments = task.attachments.filter(a => a.id !== attId);
+
+  if (currentUser && db) await saveTaskToFirestore(task);
+  else saveLocalTasks();
+
+  renderModalAttachments(task.attachments);
+  render();
+}
+
+function renderModalAttachments(attachments) {
+  const grid = $('attachments-grid');
+  const hint = $('upload-hint');
+  grid.innerHTML = '';
+
+  if (!currentUser && (attachments && attachments.length > 0)) {
+    hint.textContent = 'Misafir modunda dosyalar yalnızca bu cihazda saklanır (maks 2 MB/dosya)';
+  } else {
+    hint.textContent = '';
+  }
+
+  (attachments || []).forEach(att => {
+    const item = document.createElement('div');
+    item.className = 'attachment-item';
+
+    const isImage = att.type && att.type.startsWith('image/');
+
+    if (isImage) {
+      const img = document.createElement('img');
+      img.src = att.url;
+      img.className = 'attachment-thumb';
+      img.addEventListener('click', () => window.open(att.url, '_blank'));
+      item.appendChild(img);
+    } else {
+      const icon = document.createElement('div');
+      icon.className = 'attachment-icon';
+      icon.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+      icon.addEventListener('click', () => window.open(att.url, '_blank'));
+      item.appendChild(icon);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'attachment-name';
+    name.title = att.name;
+    name.textContent = att.name;
+
+    const del = document.createElement('button');
+    del.className = 'attachment-del';
+    del.textContent = '×';
+    del.title = 'Sil';
+    del.addEventListener('click', e => { e.stopPropagation(); deleteAttachment(editingId, att.id); });
+
+    item.append(name, del);
+    grid.appendChild(item);
+  });
 }
 
 // ---- Drag & Drop — List ----
@@ -908,6 +1047,15 @@ $('clear-done').addEventListener('click', async () => {
     saveLocalTasks();
     render();
   }
+});
+
+// Attachment file input
+$('attachment-input').addEventListener('change', async e => {
+  const files = Array.from(e.target.files);
+  for (const file of files) {
+    await uploadAttachment(editingId, file);
+  }
+  e.target.value = ''; // reset so same file can be re-selected
 });
 
 $('modal-close').addEventListener('click', closeModal);

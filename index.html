@@ -224,6 +224,22 @@
         </div>
 
         <div class="modal-section">
+          <div class="attachments-header">
+            <label class="modal-label">Dosyalar & Fotoğraflar</label>
+            <label class="btn-upload" id="upload-label" title="Dosya ekle">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              Ekle
+              <input type="file" id="attachment-input" multiple accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx" style="display:none" />
+            </label>
+          </div>
+          <div class="attachments-grid" id="attachments-grid"></div>
+          <p class="upload-hint" id="upload-hint"></p>
+          <div class="upload-progress" id="upload-progress" style="display:none">
+            <div class="upload-progress-bar" id="upload-progress-bar"></div>
+          </div>
+        </div>
+
+        <div class="modal-section">
           <div class="subtask-header">
             <label class="modal-label">Alt Görevler</label>
             <span class="subtask-progress-text" id="subtask-progress-text"></span>
@@ -290,6 +306,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
