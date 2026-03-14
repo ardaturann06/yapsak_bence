@@ -12,7 +12,6 @@ const THEME_KEY   = 'yapsak-bence-theme';
 let firebaseReady = false;
 let auth          = null;
 let db            = null;
-let storage       = null;
 let currentUser   = null;
 let guestMode     = false;
 let fsListener    = null;
@@ -21,9 +20,8 @@ function initFirebase() {
   try {
     if (!firebaseConfig || firebaseConfig.apiKey === 'BURAYA_API_KEY') return false;
     firebase.initializeApp(firebaseConfig);
-    auth    = firebase.auth();
-    db      = firebase.firestore();
-    storage = firebase.storage();
+    auth = firebase.auth();
+    db   = firebase.firestore();
     firebaseReady = true;
     return true;
   } catch (e) {
@@ -547,13 +545,40 @@ function addSubtask() {
   input.focus();
 }
 
-// ---- Attachments ----
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = e => resolve(e.target.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+// ---- Attachments (base64 + canvas compress, no Storage plan required) ----
+const MAX_PHOTOS_PER_TASK = 5;
+const TARGET_PHOTO_BYTES  = 180 * 1024; // ~180 KB after compression
+
+function compressImage(file) {
+  return new Promise(resolve => {
+    if (!file.type.startsWith('image/')) { resolve(null); return; }
+    const img    = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      const canvas = document.createElement('canvas');
+      let { width, height } = img;
+      const maxDim = 1400;
+      if (width > maxDim || height > maxDim) {
+        const r = Math.min(maxDim / width, maxDim / height);
+        width  = Math.round(width  * r);
+        height = Math.round(height * r);
+      }
+      canvas.width  = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+      // Reduce quality until under TARGET_PHOTO_BYTES (base64 is ~1.37× binary)
+      let q = 0.85;
+      let dataUrl = canvas.toDataURL('image/jpeg', q);
+      while (dataUrl.length > TARGET_PHOTO_BYTES * 1.37 && q > 0.25) {
+        q -= 0.1;
+        dataUrl = canvas.toDataURL('image/jpeg', q);
+      }
+      resolve(dataUrl);
+    };
+    img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(null); };
+    img.src = objUrl;
   });
 }
 
@@ -561,47 +586,43 @@ async function uploadAttachment(taskId, file) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  const att = { id: genId(), name: file.name, type: file.type, size: file.size };
+  if (!file.type.startsWith('image/')) {
+    $('upload-hint').textContent = 'Sadece fotoğraf (JPG, PNG, WebP, GIF) eklenebilir.';
+    setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
+    return;
+  }
+
+  if ((task.attachments || []).length >= MAX_PHOTOS_PER_TASK) {
+    $('upload-hint').textContent = `Görev başına en fazla ${MAX_PHOTOS_PER_TASK} fotoğraf eklenebilir.`;
+    setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
+    return;
+  }
+
   const progressWrap = $('upload-progress');
   const progressBar  = $('upload-progress-bar');
+  progressWrap.style.display = '';
+  progressBar.style.width = '40%';
 
-  if (currentUser && storage) {
-    // Firebase Storage
-    const path = `users/${currentUser.uid}/tasks/${taskId}/${att.id}_${file.name}`;
-    const ref   = storage.ref(path);
-    progressWrap.style.display = '';
-    progressBar.style.width = '0%';
-
-    const uploadTask = ref.put(file);
-    await new Promise((resolve, reject) => {
-      uploadTask.on('state_changed',
-        snap => {
-          const pct = Math.round(snap.bytesTransferred / snap.totalBytes * 100);
-          progressBar.style.width = pct + '%';
-        },
-        reject,
-        resolve
-      );
-    });
-
-    att.url         = await ref.getDownloadURL();
-    att.storagePath = path;
+  const dataUrl = await compressImage(file);
+  if (!dataUrl) {
     progressWrap.style.display = 'none';
-  } else {
-    // Guest mode: base64, max 2 MB
-    if (file.size > 2 * 1024 * 1024) {
-      $('upload-hint').textContent = 'Misafir modunda en fazla 2 MB dosya eklenebilir.';
-      setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
-      return;
-    }
-    att.url = await fileToBase64(file);
+    $('upload-hint').textContent = 'Fotoğraf işlenemedi.';
+    setTimeout(() => { $('upload-hint').textContent = ''; }, 3000);
+    return;
   }
+
+  progressBar.style.width = '85%';
+
+  const att = { id: genId(), name: file.name, type: 'image/jpeg', data: dataUrl };
 
   if (!task.attachments) task.attachments = [];
   task.attachments.push(att);
 
   if (currentUser && db) await saveTaskToFirestore(task);
   else saveLocalTasks();
+
+  progressBar.style.width = '100%';
+  setTimeout(() => { progressWrap.style.display = 'none'; }, 300);
 
   renderModalAttachments(task.attachments);
   render();
@@ -611,14 +632,7 @@ async function deleteAttachment(taskId, attId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  const att = (task.attachments || []).find(a => a.id === attId);
-  if (!att) return;
-
-  if (att.storagePath && storage) {
-    try { await storage.ref(att.storagePath).delete(); } catch(_) {}
-  }
-
-  task.attachments = task.attachments.filter(a => a.id !== attId);
+  task.attachments = (task.attachments || []).filter(a => a.id !== attId);
 
   if (currentUser && db) await saveTaskToFirestore(task);
   else saveLocalTasks();
@@ -631,32 +645,20 @@ function renderModalAttachments(attachments) {
   const grid = $('attachments-grid');
   const hint = $('upload-hint');
   grid.innerHTML = '';
-
-  if (!currentUser && (attachments && attachments.length > 0)) {
-    hint.textContent = 'Misafir modunda dosyalar yalnızca bu cihazda saklanır (maks 2 MB/dosya)';
-  } else {
-    hint.textContent = '';
-  }
+  hint.textContent = '';
 
   (attachments || []).forEach(att => {
     const item = document.createElement('div');
     item.className = 'attachment-item';
 
-    const isImage = att.type && att.type.startsWith('image/');
-
-    if (isImage) {
-      const img = document.createElement('img');
-      img.src = att.url;
-      img.className = 'attachment-thumb';
-      img.addEventListener('click', () => window.open(att.url, '_blank'));
-      item.appendChild(img);
-    } else {
-      const icon = document.createElement('div');
-      icon.className = 'attachment-icon';
-      icon.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-      icon.addEventListener('click', () => window.open(att.url, '_blank'));
-      item.appendChild(icon);
-    }
+    const img = document.createElement('img');
+    img.src = att.data || att.url || '';
+    img.className = 'attachment-thumb';
+    img.addEventListener('click', () => {
+      const w = window.open();
+      w.document.write(`<img src="${img.src}" style="max-width:100%;height:auto">`);
+    });
+    item.appendChild(img);
 
     const name = document.createElement('span');
     name.className = 'attachment-name';
