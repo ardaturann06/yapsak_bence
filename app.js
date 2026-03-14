@@ -668,13 +668,21 @@ function switchView(v) {
 }
 
 // ---- AUTH ----
+const loadingScreen = $('loading-screen');
+
+function hideLoading() {
+  loadingScreen.classList.add('hidden');
+}
+
 function showApp() {
+  hideLoading();
   authOverlay.classList.add('hidden');
   userBtn.style.display = '';
   render();
 }
 
 function showAuth() {
+  hideLoading();
   authOverlay.classList.remove('hidden');
   userBtn.style.display = 'none';
 }
@@ -682,6 +690,7 @@ function showAuth() {
 function enterGuestMode() {
   guestMode = true;
   tasks = migrate(loadLocalTasks());
+  hideLoading();
   authOverlay.classList.add('hidden');
   render();
 }
@@ -932,7 +941,7 @@ if (fbReady) {
   });
 } else {
   // Firebase not configured: go to guest mode automatically
-  enterGuestMode();
+  enterGuestMode(); // also calls hideLoading()
   scheduleReminders();
   setInterval(checkPastReminders, 30000);
 }
