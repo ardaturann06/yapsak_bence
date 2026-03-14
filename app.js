@@ -149,10 +149,11 @@ function filteredTasks() {
       t.category.toLowerCase().includes(q)
     );
   }
-  if (filter === 'todo')       list = list.filter(t => t.status === 'todo');
+  if (filter === 'all')             list = list.filter(t => !isDone(t));
+  else if (filter === 'todo')       list = list.filter(t => t.status === 'todo');
   else if (filter === 'inprogress') list = list.filter(t => t.status === 'inprogress');
-  else if (filter === 'done')  list = list.filter(t => isDone(t));
-  else if (filter === 'overdue') list = list.filter(t => isOverdue(t));
+  else if (filter === 'done')       list = list.filter(t => isDone(t));
+  else if (filter === 'overdue')    list = list.filter(t => isOverdue(t));
   return list;
 }
 
