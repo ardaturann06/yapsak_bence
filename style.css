@@ -811,6 +811,100 @@ select.modal-input {
   background: var(--surface);
 }
 
+/* ========== FORM DETAILS ========== */
+.form-details-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 4px 0 0;
+  transition: color 0.15s;
+  width: fit-content;
+}
+.form-details-toggle:hover { color: var(--accent); }
+.form-details-toggle svg { transition: transform 0.2s; }
+.form-details-toggle.open svg { transform: rotate(180deg); }
+.form-details-toggle.open { color: var(--accent); }
+
+.form-details {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  animation: slideIn 0.18s ease;
+}
+.form-details.open { display: flex; }
+
+.form-details textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 0.88rem;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+}
+.form-details textarea:focus { border-color: var(--accent); }
+.form-details textarea::placeholder { color: var(--text-muted); }
+
+.form-details-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-detail-field label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.form-tags-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  min-height: 38px;
+  cursor: text;
+  transition: border-color 0.2s;
+}
+.form-tags-wrap:focus-within { border-color: var(--accent); }
+.form-tags-wrap input {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+  min-width: 80px;
+  flex: 1;
+}
+.form-tags-wrap input::placeholder { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .form-details-row { grid-template-columns: 1fr; }
+}
+
 /* ========== HIDDEN ========== */
 .hidden { display: none !important; }
 

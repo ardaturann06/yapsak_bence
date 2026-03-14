@@ -152,12 +152,16 @@ function filteredTasks() {
 }
 
 // ---- CRUD ----
-async function addTask(text, priority, category, deadline) {
+async function addTask(text, priority, category, deadline, extras = {}) {
   const task = {
-    id: genId(), text: text.trim(), notes: '',
-    priority, category, status: 'todo',
-    deadline: deadline || null, reminder: null,
-    tags: [], subtasks: [],
+    id: genId(), text: text.trim(),
+    notes:    extras.notes    || '',
+    priority, category,
+    status:   extras.status   || 'todo',
+    deadline: deadline        || null,
+    reminder: extras.reminder || null,
+    tags:     extras.tags     || [],
+    subtasks: [],
     createdAt: new Date().toISOString(),
     order: tasks.length,
   };
@@ -779,6 +783,50 @@ document.addEventListener('click', () => {
 });
 
 // ---- App Event Listeners ----
+// Form details toggle
+const formDetailsToggle = $('form-details-toggle');
+const formDetails       = $('form-details');
+const formTagsWrap      = $('form-tags-wrap');
+const formTagInput      = $('form-tag-input');
+let formTags = [];
+
+formDetailsToggle.addEventListener('click', () => {
+  const open = formDetails.classList.toggle('open');
+  formDetailsToggle.classList.toggle('open', open);
+  formDetailsToggle.querySelector('span') && null;
+  formDetailsToggle.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = open ? ' Kapat' : ' Detaylar ekle'; });
+  if (open) $('form-notes').focus();
+});
+
+// Form tag input
+formTagInput.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ',') && formTagInput.value.trim()) {
+    e.preventDefault();
+    const val = formTagInput.value.trim().replace(',', '');
+    if (val && !formTags.includes(val) && formTags.length < 10) {
+      formTags.push(val);
+      renderFormTags();
+    }
+    formTagInput.value = '';
+  }
+});
+formTagsWrap.addEventListener('click', () => formTagInput.focus());
+
+function renderFormTags() {
+  formTagsWrap.innerHTML = '';
+  formTags.forEach((tag, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'tag-pill';
+    pill.innerHTML = `${tag} <button class="tag-pill-remove" type="button">×</button>`;
+    pill.querySelector('.tag-pill-remove').addEventListener('click', () => {
+      formTags.splice(i, 1); renderFormTags();
+    });
+    formTagsWrap.appendChild(pill);
+  });
+  formTagsWrap.appendChild(formTagInput);
+  formTagInput.focus();
+}
+
 addForm.addEventListener('submit', e => {
   e.preventDefault();
   const text = taskInput.value.trim();
@@ -788,9 +836,24 @@ addForm.addEventListener('submit', e => {
     taskInput.focus();
     return;
   }
-  addTask(text, prioritySelect.value, categorySelect.value, deadlineInput.value);
+  const extras = {
+    notes:    $('form-notes').value,
+    reminder: $('form-reminder').value || null,
+    status:   $('form-status').value,
+    tags:     [...formTags],
+  };
+  addTask(text, prioritySelect.value, categorySelect.value, deadlineInput.value, extras);
+  // Reset form
   taskInput.value = '';
   deadlineInput.value = '';
+  $('form-notes').value = '';
+  $('form-reminder').value = '';
+  $('form-status').value = 'todo';
+  formTags = [];
+  renderFormTags();
+  // Close details panel
+  formDetails.classList.remove('open');
+  formDetailsToggle.classList.remove('open');
   taskInput.focus();
 });
 

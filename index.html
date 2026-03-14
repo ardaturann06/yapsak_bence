@@ -77,6 +77,36 @@
         </select>
         <input type="date" id="deadline-input" class="select" title="Son tarih" />
       </div>
+
+      <!-- Detaylar toggle -->
+      <button type="button" class="form-details-toggle" id="form-details-toggle">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        Detaylar ekle
+      </button>
+
+      <!-- Genişleyen detay alanı -->
+      <div class="form-details" id="form-details">
+        <textarea id="form-notes" placeholder="Not veya açıklama..." rows="2"></textarea>
+        <div class="form-details-row">
+          <div class="form-detail-field">
+            <label>Hatırlatıcı</label>
+            <input type="datetime-local" id="form-reminder" class="select" />
+          </div>
+          <div class="form-detail-field">
+            <label>Durum</label>
+            <select id="form-status" class="select">
+              <option value="todo">Yapılacak</option>
+              <option value="inprogress">Devam Ediyor</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-detail-field">
+          <label>Etiketler</label>
+          <div class="form-tags-wrap" id="form-tags-wrap">
+            <input id="form-tag-input" placeholder="Etiket yaz + Enter" maxlength="30" />
+          </div>
+        </div>
+      </div>
     </form>
 
     <!-- FILTERS (list view only) -->
