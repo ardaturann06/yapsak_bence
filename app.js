@@ -1089,6 +1089,9 @@ function showApp() {
   hideLoading();
   authOverlay.classList.add('hidden');
   userBtn.style.display = '';
+  if (currentUser && currentUser.photoURL) {
+    userBtn.innerHTML = `<img src="${currentUser.photoURL}" class="user-avatar" alt="profil" referrerpolicy="no-referrer" />`;
+  }
   render();
 }
 

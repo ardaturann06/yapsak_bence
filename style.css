@@ -95,6 +95,12 @@ body {
   transition: all 0.15s;
 }
 .icon-btn:hover { border-color: var(--accent); color: var(--text); }
+.user-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
 
 /* Progress bar */
 .progress-wrap {
