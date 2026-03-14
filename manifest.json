@@ -1,0 +1,18 @@
+{
+  "name": "Yapsak Bence",
+  "short_name": "Yapsak",
+  "description": "Görevlerini yönet, hedefe ulaş",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a2e",
+  "theme_color": "#7c6dfa",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

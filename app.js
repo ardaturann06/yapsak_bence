@@ -90,10 +90,12 @@ async function deleteTaskFromFirestore(id) {
 
 function subscribeFirestore() {
   if (fsListener) fsListener();
+  let firstSnap = true;
   fsListener = db.collection('users').doc(currentUser.uid)
     .collection('tasks').onSnapshot(snap => {
       tasks = migrate(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       render();
+      if (firstSnap) { firstSnap = false; checkMissedReminders(); }
     });
 }
 
@@ -114,8 +116,10 @@ function migrate(arr) {
     category:    t.category    || 'genel',
     status:      t.status      || (t.done ? 'done' : 'todo'),
     deadline:    t.deadline    || null,
-    reminder:    t.reminder    || null,
-    tags:        t.tags        || [],
+    reminder:       t.reminder       || null,
+    reminderRepeat: t.reminderRepeat || 'none',
+    reminderEnd:    t.reminderEnd    || null,
+    tags:           t.tags           || [],
     subtasks:    t.subtasks    || [],
     attachments: t.attachments || [],
     createdAt:   t.createdAt   || new Date().toISOString(),
@@ -160,8 +164,10 @@ async function addTask(text, priority, category, deadline, extras = {}) {
     priority, category,
     status:      extras.status   || 'todo',
     deadline:    deadline        || null,
-    reminder:    extras.reminder || null,
-    tags:        extras.tags     || [],
+    reminder:       extras.reminder       || null,
+    reminderRepeat: extras.reminderRepeat || 'none',
+    reminderEnd:    extras.reminderEnd    || null,
+    tags:           extras.tags           || [],
     subtasks:    [],
     attachments: [],
     createdAt: new Date().toISOString(),
@@ -206,7 +212,20 @@ async function deleteTask(id) {
 async function toggleTask(id) {
   const t = tasks.find(t => t.id === id);
   if (!t) return;
-  t.status = isDone(t) ? 'todo' : 'done';
+  const becomingDone = !isDone(t);
+  t.status = becomingDone ? 'done' : 'todo';
+
+  // Recurring task: advance dates and reset to todo
+  if (becomingDone && t.reminderRepeat && t.reminderRepeat !== 'none' && t.reminder) {
+    const end         = t.reminderEnd ? new Date(t.reminderEnd + 'T23:59:59') : null;
+    const nextReminder = advanceByRepeat(t.reminder, t.reminderRepeat);
+    if (!end || new Date(nextReminder) <= end) {
+      t.status   = 'todo';
+      t.reminder = nextReminder;
+      if (t.deadline) t.deadline = advanceByRepeat(t.deadline, t.reminderRepeat, true);
+    }
+  }
+
   if (currentUser && db) {
     await saveTaskToFirestore(t);
   } else {
@@ -297,6 +316,15 @@ function makeTaskItem(task) {
     badge.className = 'task-attachment-badge';
     badge.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${task.attachments.length}`;
     meta.appendChild(badge);
+  }
+
+  if (task.reminderRepeat && task.reminderRepeat !== 'none') {
+    const repeatLabels = { daily: 'Günlük', weekly: 'Haftalık', monthly: 'Aylık' };
+    const rb = document.createElement('span');
+    rb.className = 'tag tag-repeat';
+    rb.title = repeatLabels[task.reminderRepeat] || '';
+    rb.textContent = '↻ ' + (repeatLabels[task.reminderRepeat] || '');
+    meta.appendChild(rb);
   }
 
   content.append(textEl, meta);
@@ -398,10 +426,13 @@ function openModal(id) {
   if (!task) return;
   editingId = id;
 
-  $('modal-title').value    = task.text;
-  $('modal-notes').value    = task.notes || '';
-  $('modal-deadline').value = task.deadline || '';
-  $('modal-reminder').value = task.reminder || '';
+  $('modal-title').value        = task.text;
+  $('modal-notes').value        = task.notes || '';
+  $('modal-deadline').value     = task.deadline || '';
+  $('modal-reminder').value     = task.reminder || '';
+  $('modal-repeat').value       = task.reminderRepeat || 'none';
+  $('modal-reminder-end').value = task.reminderEnd || '';
+  $('modal-repeat-end-field').style.display = (task.reminderRepeat && task.reminderRepeat !== 'none') ? '' : 'none';
   $('modal-priority').value = task.priority;
   $('modal-category').value = task.category;
   $('modal-status').value   = task.status;
@@ -430,14 +461,16 @@ async function saveModal() {
   const task = tasks.find(t => t.id === editingId);
   if (!task) return;
 
-  task.text     = $('modal-title').value.trim() || task.text;
-  task.notes    = $('modal-notes').value;
-  task.deadline = $('modal-deadline').value || null;
-  task.reminder = $('modal-reminder').value || null;
-  task.priority = $('modal-priority').value;
-  task.category = $('modal-category').value;
-  task.status   = $('modal-status').value;
-  task.tags     = [...modalTags];
+  task.text           = $('modal-title').value.trim() || task.text;
+  task.notes          = $('modal-notes').value;
+  task.deadline       = $('modal-deadline').value || null;
+  task.reminder       = $('modal-reminder').value || null;
+  task.reminderRepeat = $('modal-repeat').value || 'none';
+  task.reminderEnd    = (task.reminderRepeat !== 'none' ? $('modal-reminder-end').value : null) || null;
+  task.priority       = $('modal-priority').value;
+  task.category       = $('modal-category').value;
+  task.status         = $('modal-status').value;
+  task.tags           = [...modalTags];
 
   if (currentUser && db) {
     await saveTaskToFirestore(task);
@@ -901,7 +934,64 @@ function updateThemeIcon(theme) {
   $('theme-icon-light').style.display = theme === 'light' ? '' : 'none';
 }
 
+// ---- Service Worker ----
+let swRegistration = null;
+
+async function initSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    swRegistration = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+    // Auto-reload when a new SW takes over (so users always get fresh content)
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!sessionStorage.getItem('sw-reloaded')) {
+        sessionStorage.setItem('sw-reloaded', '1');
+        window.location.reload();
+      }
+    });
+  } catch (e) {
+    console.warn('SW kaydedilemedi:', e);
+  }
+}
+
 // ---- Notifications ----
+async function showNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (swRegistration) {
+    try {
+      await swRegistration.showNotification(title, { body, icon: 'icon.svg', badge: 'icon.svg' });
+      return;
+    } catch (e) {}
+  }
+  new Notification(title, { body });
+}
+
+// ---- Reminder repeat helpers ----
+function advanceByRepeat(isoStr, repeat, dateOnly = false) {
+  const d = dateOnly ? new Date(isoStr + 'T00:00:00') : new Date(isoStr);
+  if (repeat === 'daily')        d.setDate(d.getDate() + 1);
+  else if (repeat === 'weekly')  d.setDate(d.getDate() + 7);
+  else if (repeat === 'monthly') d.setMonth(d.getMonth() + 1);
+  return dateOnly ? d.toISOString().slice(0, 10) : d.toISOString().slice(0, 16);
+}
+
+function getNextReminder(task) {
+  if (!task.reminder) return null;
+  const repeat = task.reminderRepeat || 'none';
+  const end    = task.reminderEnd ? new Date(task.reminderEnd + 'T23:59:59') : null;
+  const now    = new Date();
+  const next   = new Date(task.reminder);
+  if (repeat === 'none') return next > now ? next : null;
+  let cur = new Date(task.reminder);
+  while (cur <= now) {
+    if (repeat === 'daily')        cur.setDate(cur.getDate() + 1);
+    else if (repeat === 'weekly')  cur.setDate(cur.getDate() + 7);
+    else if (repeat === 'monthly') cur.setMonth(cur.getMonth() + 1);
+    else break;
+  }
+  if (end && cur > end) return null;
+  return cur;
+}
+
 function requestNotifPermission() {
   if (!('Notification' in window)) return;
   Notification.requestPermission().then(p => {
@@ -912,11 +1002,11 @@ function scheduleReminders() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   tasks.forEach(task => {
     if (!task.reminder || isDone(task)) return;
-    const delay = new Date(task.reminder).getTime() - Date.now();
+    const next = getNextReminder(task);
+    if (!next) return;
+    const delay = next.getTime() - Date.now();
     if (delay > 0 && delay < 86400000) {
-      setTimeout(() => {
-        new Notification('Yapsak Bence ⏰', { body: task.text });
-      }, delay);
+      setTimeout(() => showNotification('Yapsak Bence ⏰', task.text), delay);
     }
   });
 }
@@ -925,8 +1015,42 @@ function checkPastReminders() {
   const now = Date.now();
   tasks.forEach(task => {
     if (!task.reminder || isDone(task)) return;
-    const t = new Date(task.reminder).getTime();
-    if (t <= now && t > now - 60000) new Notification('Yapsak Bence ⏰', { body: task.text });
+    const repeat = task.reminderRepeat || 'none';
+    const end    = task.reminderEnd ? new Date(task.reminderEnd + 'T23:59:59').getTime() : Infinity;
+    let t = new Date(task.reminder).getTime();
+    while (t <= now) {
+      if (t > now - 60000 && t <= end) { showNotification('Yapsak Bence ⏰', task.text); break; }
+      if (repeat === 'none') break;
+      if (repeat === 'daily')        t += 86400000;
+      else if (repeat === 'weekly')  t += 7 * 86400000;
+      else if (repeat === 'monthly') { const d = new Date(t); d.setMonth(d.getMonth() + 1); t = d.getTime(); }
+      else break;
+    }
+  });
+}
+function checkMissedReminders() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const LAST_KEY = 'yapsak-bence-last-check';
+  const lastCheck = parseInt(localStorage.getItem(LAST_KEY) || '0', 10);
+  const now = Date.now();
+  localStorage.setItem(LAST_KEY, String(now));
+  if (!lastCheck) return;
+  tasks.forEach(task => {
+    if (!task.reminder || isDone(task)) return;
+    const repeat = task.reminderRepeat || 'none';
+    const end    = task.reminderEnd ? new Date(task.reminderEnd + 'T23:59:59').getTime() : Infinity;
+    let t = new Date(task.reminder).getTime();
+    while (t <= now) {
+      if (t > lastCheck && t <= now && t <= end) {
+        showNotification('Yapsak Bence ⏰ (Kaçırıldı)', task.text);
+        break;
+      }
+      if (repeat === 'none') break;
+      if (repeat === 'daily')        t += 86400000;
+      else if (repeat === 'weekly')  t += 7 * 86400000;
+      else if (repeat === 'monthly') { const d = new Date(t); d.setMonth(d.getMonth() + 1); t = d.getTime(); }
+      else break;
+    }
   });
 }
 
@@ -963,6 +1087,7 @@ function showAuth() {
 function enterGuestMode() {
   guestMode = true;
   tasks = migrate(loadLocalTasks());
+  checkMissedReminders();
   hideLoading();
   authOverlay.classList.add('hidden');
   render();
@@ -1118,11 +1243,14 @@ addForm.addEventListener('submit', e => {
     taskInput.focus();
     return;
   }
+  const formRepeat = $('form-repeat').value || 'none';
   const extras = {
-    notes:    $('form-notes').value,
-    reminder: $('form-reminder').value || null,
-    status:   $('form-status').value,
-    tags:     [...formTags],
+    notes:          $('form-notes').value,
+    reminder:       $('form-reminder').value || null,
+    reminderRepeat: formRepeat,
+    reminderEnd:    (formRepeat !== 'none' ? $('form-reminder-end').value : null) || null,
+    status:         $('form-status').value,
+    tags:           [...formTags],
   };
   addTask(text, prioritySelect.value, categorySelect.value, deadlineInput.value, extras);
   // Reset form
@@ -1130,6 +1258,9 @@ addForm.addEventListener('submit', e => {
   deadlineInput.value = '';
   $('form-notes').value = '';
   $('form-reminder').value = '';
+  $('form-repeat').value = 'none';
+  $('form-reminder-end').value = '';
+  $('form-repeat-end-field').style.display = 'none';
   $('form-status').value = 'todo';
   formTags = [];
   renderFormTags();
@@ -1168,6 +1299,14 @@ searchClear.addEventListener('click', () => {
 themeBtn.addEventListener('click', toggleTheme);
 notifBtn.addEventListener('click', requestNotifPermission);
 
+// Show/hide reminder end date when repeat changes
+$('modal-repeat').addEventListener('change', e => {
+  $('modal-repeat-end-field').style.display = e.target.value === 'none' ? 'none' : '';
+});
+$('form-repeat').addEventListener('change', e => {
+  $('form-repeat-end-field').style.display = e.target.value === 'none' ? 'none' : '';
+});
+
 $('clear-done').addEventListener('click', async () => {
   const doneIds = tasks.filter(isDone).map(t => t.id);
   // Clean up attachments for each done task
@@ -1204,6 +1343,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && editingId)
 
 // ---- Init ----
 loadTheme();
+initSW();
+
+if ('Notification' in window && Notification.permission === 'granted') {
+  notifBtn.style.color = 'var(--low)';
+}
 
 const fbReady = initFirebase();
 

@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7c6dfa" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Yapsak Bence" />
+  <link rel="apple-touch-icon" href="icon.svg" />
 </head>
 <body>
   <div class="app">
@@ -100,6 +106,21 @@
             </select>
           </div>
         </div>
+        <div class="form-details-row">
+          <div class="form-detail-field">
+            <label>Tekrar</label>
+            <select id="form-repeat" class="select">
+              <option value="none">Tekrar yok</option>
+              <option value="daily">Her gün</option>
+              <option value="weekly">Her hafta</option>
+              <option value="monthly">Her ay</option>
+            </select>
+          </div>
+          <div class="form-detail-field" id="form-repeat-end-field" style="display:none">
+            <label>Bitiş Tarihi</label>
+            <input type="date" id="form-reminder-end" class="select" />
+          </div>
+        </div>
         <div class="form-detail-field">
           <label>Etiketler</label>
           <div class="form-tags-wrap" id="form-tags-wrap">
@@ -187,6 +208,19 @@
           <div class="modal-field">
             <label class="modal-label">Hatırlatıcı</label>
             <input type="datetime-local" id="modal-reminder" class="modal-input" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Tekrar</label>
+            <select id="modal-repeat" class="modal-input">
+              <option value="none">Tekrar yok</option>
+              <option value="daily">Her gün</option>
+              <option value="weekly">Her hafta</option>
+              <option value="monthly">Her ay</option>
+            </select>
+          </div>
+          <div class="modal-field" id="modal-repeat-end-field" style="display:none">
+            <label class="modal-label">Bitiş Tarihi</label>
+            <input type="date" id="modal-reminder-end" class="modal-input" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Öncelik</label>
