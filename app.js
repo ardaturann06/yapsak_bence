@@ -2048,6 +2048,100 @@ loadTheme();
 loadSettings();
 initSW();
 
+// ---- Pomodoro ----
+const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 };
+let pomoMode        = 'work';
+let pomoSecondsLeft = POMO_DURATIONS.work;
+let pomoRunning     = false;
+let pomoInterval    = null;
+let pomoSessions    = parseInt(localStorage.getItem('yapsak-pomo-sessions') || '0');
+
+function pomoFmt(s) { return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+
+function pomoUpdateRing() {
+  const pct = pomoSecondsLeft / POMO_DURATIONS[pomoMode];
+  const circ = 2 * Math.PI * 50;
+  const fill = $('pomo-ring-fill');
+  if (fill) { fill.style.strokeDasharray = circ; fill.style.strokeDashoffset = circ * (1 - pct); }
+  const t = $('pomo-time'); if (t) t.textContent = pomoFmt(pomoSecondsLeft);
+}
+
+function pomoTick() {
+  if (pomoSecondsLeft <= 0) {
+    clearInterval(pomoInterval); pomoRunning = false;
+    $('pomo-start').textContent = 'Başlat';
+    if (pomoMode === 'work') {
+      pomoSessions++;
+      localStorage.setItem('yapsak-pomo-sessions', pomoSessions);
+      const sc = $('pomo-session-count'); if (sc) sc.textContent = pomoSessions;
+    }
+    playPomodoroEnd();
+    document.title = 'Yapsak Bence';
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const msg = { work: 'Mola zamanı! 🎉', short: 'Kısa mola bitti, devam!', long: 'Uzun mola bitti!' };
+      new Notification('Yapsak Bence — Pomodoro', { body: msg[pomoMode], icon: 'icon.svg' });
+    }
+    return;
+  }
+  pomoSecondsLeft--;
+  pomoUpdateRing();
+  document.title = `${pomoFmt(pomoSecondsLeft)} — Yapsak Bence`;
+}
+
+function pomoStart() {
+  if (pomoRunning) {
+    clearInterval(pomoInterval); pomoRunning = false;
+    $('pomo-start').textContent = 'Devam'; document.title = 'Yapsak Bence'; return;
+  }
+  pomoRunning = true;
+  $('pomo-start').textContent = 'Duraklat';
+  pomoInterval = setInterval(pomoTick, 1000);
+}
+
+function pomoReset() {
+  clearInterval(pomoInterval); pomoRunning = false;
+  pomoSecondsLeft = POMO_DURATIONS[pomoMode];
+  $('pomo-start').textContent = 'Başlat';
+  document.title = 'Yapsak Bence';
+  pomoUpdateRing();
+}
+
+function pomoSetMode(mode) {
+  clearInterval(pomoInterval); pomoRunning = false;
+  pomoMode = mode; pomoSecondsLeft = POMO_DURATIONS[mode];
+  $('pomo-start').textContent = 'Başlat';
+  document.title = 'Yapsak Bence';
+  document.querySelectorAll('.pomo-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  pomoUpdateRing();
+}
+
+function playPomodoroEnd() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [440, 550, 660, 880].forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.18;
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      osc.start(t); osc.stop(t + 0.4);
+    });
+  } catch {}
+}
+
+$('pomo-fab').addEventListener('click', () => {
+  $('pomo-widget').classList.toggle('hidden');
+  if (!$('pomo-widget').classList.contains('hidden')) {
+    const sc = $('pomo-session-count'); if (sc) sc.textContent = pomoSessions;
+    pomoUpdateRing();
+  }
+});
+$('pomo-close').addEventListener('click', () => $('pomo-widget').classList.add('hidden'));
+$('pomo-start').addEventListener('click', pomoStart);
+$('pomo-reset').addEventListener('click', pomoReset);
+document.querySelectorAll('.pomo-mode-btn').forEach(b => b.addEventListener('click', () => pomoSetMode(b.dataset.mode)));
+
 // Calendar navigation
 $('cal-prev').addEventListener('click', () => {
   calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }

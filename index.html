@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=13" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -245,6 +245,34 @@
     </div>
 
   </div><!-- /app -->
+
+  <!-- POMODORO WIDGET -->
+  <div class="pomo-fab" id="pomo-fab" title="Pomodoro Zamanlayıcı">🍅</div>
+  <div class="pomo-widget hidden" id="pomo-widget">
+    <div class="pomo-header">
+      <span class="pomo-title">Pomodoro</span>
+      <button class="icon-btn" id="pomo-close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="pomo-modes">
+      <button class="pomo-mode-btn active" data-mode="work">Çalışma</button>
+      <button class="pomo-mode-btn" data-mode="short">Kısa Mola</button>
+      <button class="pomo-mode-btn" data-mode="long">Uzun Mola</button>
+    </div>
+    <div class="pomo-ring-wrap">
+      <svg class="pomo-ring" viewBox="0 0 120 120">
+        <circle class="pomo-ring-bg" cx="60" cy="60" r="50"/>
+        <circle class="pomo-ring-fill" id="pomo-ring-fill" cx="60" cy="60" r="50"/>
+      </svg>
+      <div class="pomo-time" id="pomo-time">25:00</div>
+    </div>
+    <div class="pomo-controls">
+      <button class="btn btn-save" id="pomo-start">Başlat</button>
+      <button class="btn" id="pomo-reset">Sıfırla</button>
+    </div>
+    <div class="pomo-session-info" id="pomo-session-info">🍅 <b id="pomo-session-count">0</b> seans tamamlandı</div>
+  </div>
 
   <!-- TASK DETAIL MODAL -->
   <div class="modal-overlay" id="modal-overlay">
@@ -524,7 +552,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=12"></script>
-  <script src="app.js?v=12"></script>
+  <script src="firebase-config.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
