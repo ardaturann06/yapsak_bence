@@ -1038,7 +1038,9 @@ function openStats() {
     }).join('')}
   `;
 
-  $('stats-overlay').classList.remove('hidden');
+  const ov = $('stats-overlay');
+  ov.classList.remove('hidden');
+  ov.classList.add('open');
 }
 
 // ---- Theme ----
@@ -1426,8 +1428,8 @@ searchClear.addEventListener('click', () => {
 themeBtn.addEventListener('click', toggleTheme);
 notifBtn.addEventListener('click', requestNotifPermission);
 $('stats-btn').addEventListener('click', openStats);
-$('stats-close').addEventListener('click', () => $('stats-overlay').classList.add('hidden'));
-$('stats-overlay').addEventListener('click', e => { if (e.target === $('stats-overlay')) $('stats-overlay').classList.add('hidden'); });
+$('stats-close').addEventListener('click', () => { $('stats-overlay').classList.add('hidden'); $('stats-overlay').classList.remove('open'); });
+$('stats-overlay').addEventListener('click', e => { if (e.target === $('stats-overlay')) { $('stats-overlay').classList.add('hidden'); $('stats-overlay').classList.remove('open'); } });
 
 // Show/hide reminder end date when repeat changes
 $('modal-repeat').addEventListener('change', e => {
