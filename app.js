@@ -1036,11 +1036,46 @@ function openStats() {
         <span class="stats-bar-count">${count}</span>
       </div>`;
     }).join('')}
+
+    <button class="btn btn-save" style="width:100%;margin-top:20px" onclick="exportCSV()">
+      CSV İndir
+    </button>
   `;
 
   const ov = $('stats-overlay');
   ov.classList.remove('hidden');
   ov.classList.add('open');
+}
+
+// ---- CSV Export ----
+function exportCSV() {
+  const headers = ['Görev', 'Durum', 'Öncelik', 'Kategori', 'Son Tarih', 'Hatırlatıcı', 'Etiketler', 'Notlar', 'Oluşturulma'];
+  const statusMap = { todo: 'Yapılacak', inprogress: 'Devam Ediyor', done: 'Tamamlandı' };
+  const priMap    = { high: 'Yüksek', normal: 'Normal', low: 'Düşük' };
+  const catMap    = { genel: 'Genel', is: 'İş', kisisel: 'Kişisel', alisveris: 'Alışveriş', saglik: 'Sağlık' };
+
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+  const rows = tasks.map(t => [
+    esc(t.text),
+    esc(statusMap[t.status] || t.status),
+    esc(priMap[t.priority] || t.priority),
+    esc(catMap[t.category] || t.category),
+    esc(t.deadline || ''),
+    esc(t.reminder || ''),
+    esc((t.tags || []).join(', ')),
+    esc(t.notes || ''),
+    esc(t.createdAt ? t.createdAt.slice(0, 10) : ''),
+  ].join(','));
+
+  const csv = '\uFEFF' + [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `yapsak-bence-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ---- Theme ----
