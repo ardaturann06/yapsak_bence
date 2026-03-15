@@ -5,8 +5,62 @@
              Drag&Drop, Theme, Notifications
    ============================================================ */
 
-const STORAGE_KEY = 'yapsak-bence-v2';
-const THEME_KEY   = 'yapsak-bence-theme';
+const STORAGE_KEY  = 'yapsak-bence-v2';
+const THEME_KEY    = 'yapsak-bence-theme';
+const SETTINGS_KEY = 'yapsak-bence-settings';
+
+// ---- Settings ----
+let settings = {
+  sound:           true,
+  confetti:        true,
+  sortOrder:       'manual',
+  defaultPriority: 'normal',
+  defaultCategory: 'genel',
+  hideDone:        false,
+};
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    if (saved) settings = { ...settings, ...saved };
+  } catch {}
+  applySettings();
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  applySettings();
+  render();
+}
+
+function applySettings() {
+  // Sync form defaults
+  const ps = $('priority-select');
+  const cs = $('category-select');
+  if (ps) ps.value = settings.defaultPriority;
+  if (cs) cs.value = settings.defaultCategory;
+}
+
+function openSettings() {
+  const drawer = $('settings-drawer');
+  drawer.classList.add('open');
+  // populate controls
+  setToggle('stg-sound',    settings.sound);
+  setToggle('stg-confetti', settings.confetti);
+  setToggle('stg-hidedone', settings.hideDone);
+  $('stg-sort').value     = settings.sortOrder;
+  $('stg-priority').value = settings.defaultPriority;
+  $('stg-category').value = settings.defaultCategory;
+}
+
+function closeSettings() {
+  $('settings-drawer').classList.remove('open');
+}
+
+function setToggle(id, val) {
+  const el = $(id);
+  if (el) el.checked = !!val;
+}
 
 // ---- Firebase ----
 let firebaseReady = false;
@@ -156,6 +210,27 @@ function filteredTasks() {
   else if (filter === 'inprogress') list = list.filter(t => t.status === 'inprogress');
   else if (filter === 'done')       list = list.filter(t => isDone(t));
   else if (filter === 'overdue')    list = list.filter(t => isOverdue(t));
+
+  if (settings.hideDone && filter === 'all') {
+    list = list.filter(t => !isDone(t));
+  }
+
+  const priOrd = { high: 0, normal: 1, low: 2 };
+  if (settings.sortOrder === 'deadline') {
+    list.sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return new Date(a.deadline) - new Date(b.deadline);
+    });
+  } else if (settings.sortOrder === 'priority') {
+    list.sort((a, b) => (priOrd[a.priority] ?? 1) - (priOrd[b.priority] ?? 1));
+  } else if (settings.sortOrder === 'alpha') {
+    list.sort((a, b) => a.text.localeCompare(b.text, 'tr'));
+  } else if (settings.sortOrder === 'created') {
+    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+
   return list;
 }
 
@@ -244,6 +319,7 @@ async function toggleTask(id) {
 
 // ---- Done effects ----
 function playDoneSound() {
+  if (!settings.sound) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const notes = [523, 659, 784]; // C5 E5 G5
@@ -279,11 +355,21 @@ function getConfettiInstance() {
 let cleanerTimer = null;
 
 function fireConfetti() {
+  if (!settings.confetti) return;
   const fire = getConfettiInstance();
   if (!fire) return;
-  fire({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b'], gravity: 0.35, ticks: 600 });
+  const colors = ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b', '#fff'];
+  const opts = { particleCount: 60, spread: 55, colors, gravity: 1.2, ticks: 500, scalar: 1.1 };
+
+  // Sol alt
+  fire({ ...opts, origin: { x: 0.2, y: 1 }, angle: 65 });
+  // Orta
+  setTimeout(() => fire({ ...opts, particleCount: 80, origin: { x: 0.5, y: 1 }, angle: 90 }), 150);
+  // Sağ alt
+  setTimeout(() => fire({ ...opts, origin: { x: 0.8, y: 1 }, angle: 115 }), 300);
+
   if (cleanerTimer) clearTimeout(cleanerTimer);
-  cleanerTimer = setTimeout(spawnCleaner, 2500);
+  cleanerTimer = setTimeout(spawnCleaner, 3500);
 }
 
 function spawnCleaner() {
@@ -1669,7 +1755,28 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && editingId)
 
 // ---- Init ----
 loadTheme();
+loadSettings();
 initSW();
+
+// Settings events
+$('settings-btn').addEventListener('click', openSettings);
+$('settings-close').addEventListener('click', closeSettings);
+$('settings-drawer').addEventListener('click', e => { if (e.target === $('settings-drawer')) closeSettings(); });
+
+['stg-sound','stg-confetti','stg-hidedone'].forEach(id => {
+  $(id).addEventListener('change', e => {
+    const key = { 'stg-sound': 'sound', 'stg-confetti': 'confetti', 'stg-hidedone': 'hideDone' }[id];
+    settings[key] = e.target.checked;
+    saveSettings();
+  });
+});
+['stg-sort','stg-priority','stg-category'].forEach(id => {
+  $(id).addEventListener('change', e => {
+    const key = { 'stg-sort': 'sortOrder', 'stg-priority': 'defaultPriority', 'stg-category': 'defaultCategory' }[id];
+    settings[key] = e.target.value;
+    saveSettings();
+  });
+});
 
 if ('Notification' in window && Notification.permission === 'granted') {
   notifBtn.style.color = 'var(--low)';
