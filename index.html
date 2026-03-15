@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=10" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -164,6 +164,13 @@
       <button class="btn btn-save" id="bulk-complete-btn">Tamamla</button>
       <button class="btn btn-delete-modal" id="bulk-delete-btn">Sil</button>
       <button class="btn" id="bulk-cancel-btn">İptal</button>
+    </div>
+
+    <!-- DAILY QUOTE -->
+    <div class="daily-quote" id="daily-quote">
+      <span class="daily-quote-icon">💬</span>
+      <span class="daily-quote-text" id="daily-quote-text"></span>
+      <button class="daily-quote-close" id="daily-quote-close" title="Kapat">×</button>
     </div>
 
     <!-- FILTERS (list view only) -->
@@ -498,7 +505,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=9"></script>
-  <script src="app.js?v=9"></script>
+  <script src="firebase-config.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

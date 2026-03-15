@@ -1550,6 +1550,7 @@ function showApp() {
   if (currentUser && db) $('share-btn').style.display = '';
   loadXP();
   loadXPFirestore();
+  initDailyQuote();
   render();
 }
 
@@ -1566,6 +1567,7 @@ function enterGuestMode() {
   hideLoading();
   authOverlay.classList.add('hidden');
   loadXP();
+  initDailyQuote();
   render();
 }
 
@@ -1835,6 +1837,55 @@ $('modal-delete').addEventListener('click', () => { if (editingId) deleteTask(ed
 $('subtask-add-btn').addEventListener('click', addSubtask);
 $('subtask-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && editingId) closeModal(); });
+
+// ---- Daily Quote ----
+const QUOTES = [
+  "Büyük işler, küçük adımlarla başlar.",
+  "Bugün yapabileceğini yarına bırakma.",
+  "Başarı, her gün tekrarlanan küçük çabaların toplamıdır.",
+  "Bir görevi tamamlamak, onu mükemmel yapmaktan daha iyidir.",
+  "Disiplin, motivasyon olmadığında devreye girer.",
+  "Hedefe giden yol, tek tek atılan adımlardan oluşur.",
+  "Harekete geçmek, mükemmel planı beklemekten üstündür.",
+  "Her başarı, bir kararla başlar.",
+  "Kendin için yaptıkların seni en ileri götürür.",
+  "Güçlü olmak zorunda değilsin, sadece pes etme.",
+  "Zor zamanlar geçer, güçlü insanlar kalır.",
+  "Bugünkü emek, yarınki başarıdır.",
+  "Bir sonraki adım her zaman en önemli olanıdır.",
+  "Başarı şansa değil, kararlılığa bağlıdır.",
+  "En uzun yolculuk bile tek bir adımla başlar.",
+  "Küçük ilerlemeler de ilerlemedir.",
+  "Vazgeçmek, başarısızlığın tek garantili yoludur.",
+  "İmkânsız gibi görünen şeyler, sadece henüz yapılmamış olanlardır.",
+  "Odaklan, çalış, kazan.",
+  "Her yeni gün, yeni bir fırsat sunar.",
+  "Başarılar hedeflenmez, kazanılır.",
+  "En iyi zaman şimdi; ikinci en iyi zaman da yine şimdi.",
+  "Yapabilirsin, sadece başla.",
+  "Düşünceler hayata dönüşür — doğru düşün.",
+  "Süreklilik, yeteneği bile geçer.",
+  "Bir görev tamamlanmadan diğerine geçme.",
+  "Küçük kazanımları kutla, büyük hedeflere odaklan.",
+  "Bugün sıkı çalış, yarın sonuçlarını gör.",
+  "Mükemmeli beklerken iyiyi kaçırma.",
+  "Başarı, vazgeçmeyenlerin ödülüdür.",
+];
+
+function initDailyQuote() {
+  const today = new Date().toDateString();
+  if (sessionStorage.getItem('yapsak-quote-dismissed') === today) {
+    $('daily-quote').style.display = 'none'; return;
+  }
+  const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  $('daily-quote-text').textContent = QUOTES[dayOfYear % QUOTES.length];
+  $('daily-quote-close').addEventListener('click', () => {
+    const el = $('daily-quote');
+    el.classList.add('closing');
+    setTimeout(() => { el.style.display = 'none'; }, 300);
+    sessionStorage.setItem('yapsak-quote-dismissed', today);
+  });
+}
 
 // ---- Init ----
 loadTheme();
