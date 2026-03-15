@@ -967,6 +967,80 @@ function initKanbanDrag() {
   });
 }
 
+// ---- Stats ----
+function openStats() {
+  const total    = tasks.length;
+  const done     = tasks.filter(isDone).length;
+  const inprog   = tasks.filter(t => t.status === 'inprogress').length;
+  const overdue  = tasks.filter(isOverdue).length;
+  const pct      = total ? Math.round(done / total * 100) : 0;
+
+  // Category breakdown
+  const catLabels = { genel: 'Genel', is: 'İş', kisisel: 'Kişisel', alisveris: 'Alışveriş', saglik: 'Sağlık' };
+  const catCounts = {};
+  tasks.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
+  const maxCat = Math.max(...Object.values(catCounts), 1);
+
+  // Priority breakdown
+  const priColors = { high: '#f87272', normal: '#7c6dfa', low: '#60d999' };
+  const priLabels = { high: 'Yüksek', normal: 'Normal', low: 'Düşük' };
+  const priCounts = { high: 0, normal: 0, low: 0 };
+  tasks.forEach(t => { if (priCounts[t.priority] !== undefined) priCounts[t.priority]++; });
+
+  // Donut SVG for completion
+  const r = 40, cx = 50, cy = 50, circ = 2 * Math.PI * r;
+  const fill = circ * pct / 100;
+  const donutSVG = `<svg width="100" height="100" viewBox="0 0 100 100">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface3)" stroke-width="12"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--accent)" stroke-width="12"
+      stroke-dasharray="${fill} ${circ}" stroke-dashoffset="${circ * 0.25}" stroke-linecap="round"/>
+    <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle"
+      fill="var(--text)" font-size="16" font-weight="700">${pct}%</text>
+  </svg>`;
+
+  $('stats-body').innerHTML = `
+    <div class="stats-summary">
+      <div class="stat-card accent"><span class="stat-card-label">Toplam</span><span class="stat-card-value">${total}</span></div>
+      <div class="stat-card green"><span class="stat-card-label">Tamamlanan</span><span class="stat-card-value">${done}</span></div>
+      <div class="stat-card warn"><span class="stat-card-label">Devam Eden</span><span class="stat-card-value">${inprog}</span></div>
+      <div class="stat-card red"><span class="stat-card-label">Gecikmiş</span><span class="stat-card-value">${overdue}</span></div>
+    </div>
+
+    <div class="stats-section-title">Tamamlanma Oranı</div>
+    <div class="stats-donut-wrap">
+      ${donutSVG}
+      <div class="stats-legend">
+        <div class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--accent)"></span>Tamamlanan: ${done}</div>
+        <div class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--surface3)"></span>Kalan: ${total - done}</div>
+      </div>
+    </div>
+
+    <div class="stats-section-title">Kategoriye Göre</div>
+    ${Object.entries(catLabels).map(([key, label]) => {
+      const count = catCounts[key] || 0;
+      const w = maxCat ? Math.round(count / maxCat * 100) : 0;
+      return `<div class="stats-bar-row">
+        <span class="stats-bar-label">${label}</span>
+        <div class="stats-bar-wrap"><div class="stats-bar-fill" style="width:${w}%"></div></div>
+        <span class="stats-bar-count">${count}</span>
+      </div>`;
+    }).join('')}
+
+    <div class="stats-section-title">Önceliğe Göre</div>
+    ${Object.entries(priLabels).map(([key, label]) => {
+      const count = priCounts[key] || 0;
+      const w = total ? Math.round(count / total * 100) : 0;
+      return `<div class="stats-bar-row">
+        <span class="stats-bar-label">${label}</span>
+        <div class="stats-bar-wrap"><div class="stats-bar-fill" style="width:${w}%;background:${priColors[key]}"></div></div>
+        <span class="stats-bar-count">${count}</span>
+      </div>`;
+    }).join('')}
+  `;
+
+  $('stats-overlay').classList.remove('hidden');
+}
+
 // ---- Theme ----
 function loadTheme() {
   const saved = localStorage.getItem(THEME_KEY) || 'dark';
@@ -1351,6 +1425,9 @@ searchClear.addEventListener('click', () => {
 
 themeBtn.addEventListener('click', toggleTheme);
 notifBtn.addEventListener('click', requestNotifPermission);
+$('stats-btn').addEventListener('click', openStats);
+$('stats-close').addEventListener('click', () => $('stats-overlay').classList.add('hidden'));
+$('stats-overlay').addEventListener('click', e => { if (e.target === $('stats-overlay')) $('stats-overlay').classList.add('hidden'); });
 
 // Show/hide reminder end date when repeat changes
 $('modal-repeat').addEventListener('change', e => {
