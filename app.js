@@ -263,9 +263,50 @@ function playDoneSound() {
   } catch {}
 }
 
+let confettiInstance = null;
+
+function getConfettiInstance() {
+  if (confettiInstance) return confettiInstance;
+  if (typeof confetti !== 'function') return null;
+  const canvas = document.createElement('canvas');
+  canvas.id = 'confetti-canvas';
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998';
+  document.body.appendChild(canvas);
+  confettiInstance = confetti.create(canvas, { resize: true, useWorker: false });
+  return confettiInstance;
+}
+
 function fireConfetti() {
-  if (typeof confetti !== 'function') return;
-  confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b'] });
+  const fire = getConfettiInstance();
+  if (!fire) return;
+  fire({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b'], gravity: 0.4, ticks: 500 });
+  showBroomBtn();
+}
+
+function showBroomBtn() {
+  let btn = document.getElementById('broom-btn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'broom-btn';
+    btn.textContent = '🧹';
+    btn.title = 'Temizle';
+    btn.className = 'broom-btn';
+    btn.addEventListener('click', sweepConfetti);
+    document.body.appendChild(btn);
+  }
+  btn.style.display = '';
+  btn.classList.remove('sweeping');
+}
+
+function sweepConfetti() {
+  const btn = document.getElementById('broom-btn');
+  if (!btn) return;
+  btn.classList.add('sweeping');
+  setTimeout(() => {
+    btn.style.display = 'none';
+    btn.classList.remove('sweeping');
+    if (confettiInstance) confettiInstance.reset();
+  }, 600);
 }
 
 // ---- Stats ----

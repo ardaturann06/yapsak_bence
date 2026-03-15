@@ -1365,6 +1365,21 @@ select.modal-input {
   .attachments-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
 }
 
+/* ========== BROOM BUTTON ========== */
+@keyframes broom-in  { from { transform: scale(0) rotate(-30deg); opacity:0; } to { transform: scale(1) rotate(0deg); opacity:1; } }
+@keyframes broom-sweep { 0% { transform: translateX(0) rotate(0deg); } 100% { transform: translateX(120vw) rotate(20deg); } }
+
+.broom-btn {
+  position: fixed; bottom: 24px; right: 20px; z-index: 9999;
+  font-size: 1.6rem; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 50%; width: 52px; height: 52px; cursor: pointer;
+  box-shadow: var(--shadow); animation: broom-in 0.3s ease;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s;
+}
+.broom-btn:hover { transform: scale(1.15) rotate(-10deg); }
+.broom-btn.sweeping { animation: broom-sweep 0.6s ease forwards; }
+
 /* ========== SHARE BANNER ========== */
 .share-banner {
   background: color-mix(in srgb, var(--accent) 15%, var(--surface));
