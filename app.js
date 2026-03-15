@@ -359,17 +359,17 @@ function fireConfetti() {
   const fire = getConfettiInstance();
   if (!fire) return;
   const colors = ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b', '#fff'];
-  const opts = { particleCount: 60, spread: 55, colors, gravity: 1.2, ticks: 500, scalar: 1.1 };
+  const opts = { particleCount: 70, spread: 60, colors, gravity: 0.45, ticks: 900, scalar: 1.1, drift: 0 };
 
   // Sol alt
   fire({ ...opts, origin: { x: 0.2, y: 1 }, angle: 65 });
   // Orta
-  setTimeout(() => fire({ ...opts, particleCount: 80, origin: { x: 0.5, y: 1 }, angle: 90 }), 150);
+  setTimeout(() => fire({ ...opts, particleCount: 90, origin: { x: 0.5, y: 1 }, angle: 90 }), 150);
   // Sağ alt
   setTimeout(() => fire({ ...opts, origin: { x: 0.8, y: 1 }, angle: 115 }), 300);
 
   if (cleanerTimer) clearTimeout(cleanerTimer);
-  cleanerTimer = setTimeout(spawnCleaner, 3500);
+  cleanerTimer = setTimeout(spawnCleaner, 2200);
 }
 
 function spawnCleaner() {
