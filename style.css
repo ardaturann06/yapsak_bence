@@ -265,16 +265,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ========== BUTTONS ========== */
 .btn {
-  border: none;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.88rem;
   font-weight: 600;
+  padding: 8px 16px;
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
+.btn:hover { background: var(--surface3); }
 
 .btn-add {
   background: var(--accent);
@@ -1394,12 +1399,13 @@ select.modal-input {
 .icon-btn.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); border-radius: var(--radius-sm); }
 
 .bulk-bar {
-  display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+  display: none; align-items: center; gap: 8px;
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 10px 14px; margin: 0 0 8px;
+  overflow: hidden;
 }
 .bulk-bar.show { display: flex; }
-#bulk-count { font-size: 0.85rem; color: var(--text-muted); flex: 1; }
+#bulk-count { font-size: 0.85rem; color: var(--text-muted); flex: 1; min-width: 0; }
 
 /* ========== SETTINGS DRAWER ========== */
 .settings-backdrop {
