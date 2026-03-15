@@ -1493,6 +1493,7 @@ select.modal-input {
 .cal-day-num { font-size: 0.78rem; color: var(--text-muted); }
 .cal-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
 .cal-dot { width: 6px; height: 6px; border-radius: 50%; }
+.cal-dot-recur { box-shadow: 0 0 0 1.5px var(--border); opacity: 0.65; }
 .cal-day-tasks { background: var(--surface2); border-radius: var(--radius); overflow: hidden; }
 .cal-day-header { font-size: 0.82rem; font-weight: 600; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
 .cal-day-empty { font-size: 0.82rem; color: var(--text-muted); padding: 14px; }
@@ -1504,8 +1505,9 @@ select.modal-input {
 .cal-task-item:last-child { border-bottom: none; }
 .cal-task-item:hover { background: var(--surface3); }
 .cal-task-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.cal-task-text { font-size: 0.86rem; }
+.cal-task-text { font-size: 0.86rem; flex: 1; }
 .cal-task-done .cal-task-text { text-decoration: line-through; color: var(--text-muted); }
+.cal-recur-badge { font-size: 0.7rem; color: var(--accent); font-weight: 700; flex-shrink: 0; }
 
 /* ========== DAILY QUOTE ========== */
 .daily-quote {

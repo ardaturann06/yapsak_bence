@@ -1573,6 +1573,25 @@ let calSelectedDate = null;
 const TR_MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const TR_DAYS   = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
 
+// Returns all occurrence date strings of a recurring task within [fromIso, toIso]
+function getRecurOccurrences(task, fromIso, toIso) {
+  if (!task.recurType || task.recurType === 'none' || !task.deadline) return [];
+  const from = new Date(fromIso + 'T00:00:00');
+  const to   = new Date(toIso   + 'T23:59:59');
+  const end  = task.recurEnd ? new Date(task.recurEnd + 'T23:59:59') : null;
+  const results = [];
+  let cur = new Date(task.deadline + 'T00:00:00');
+  for (let i = 0; i < 200; i++) {
+    if ((end && cur > end) || cur > to) break;
+    if (cur >= from) results.push(cur.toISOString().slice(0, 10));
+    if      (task.recurType === 'daily')   cur.setDate(cur.getDate() + 1);
+    else if (task.recurType === 'weekly')  cur.setDate(cur.getDate() + 7);
+    else if (task.recurType === 'monthly') cur.setMonth(cur.getMonth() + 1);
+    else break;
+  }
+  return results;
+}
+
 function renderCalendar() {
   const grid  = $('cal-grid');
   const title = $('cal-title');
@@ -1583,11 +1602,22 @@ function renderCalendar() {
   const lastDay  = new Date(calYear, calMonth + 1, 0);
   const startDow = (firstDay.getDay() + 6) % 7; // Mon=0
 
+  const monthStart = `${calYear}-${String(calMonth+1).padStart(2,'0')}-01`;
+  const monthEnd   = lastDay.toISOString().slice(0, 10);
+
   const tasksByDate = {};
+  const addToDate = (ds, t) => {
+    if (!tasksByDate[ds]) tasksByDate[ds] = [];
+    tasksByDate[ds].push(t);
+  };
   tasks.forEach(t => {
     if (!t.deadline) return;
-    if (!tasksByDate[t.deadline]) tasksByDate[t.deadline] = [];
-    tasksByDate[t.deadline].push(t);
+    addToDate(t.deadline, t);
+    if (t.recurType && t.recurType !== 'none') {
+      getRecurOccurrences(t, monthStart, monthEnd).forEach(ds => {
+        if (ds !== t.deadline) addToDate(ds, t); // current deadline already added
+      });
+    }
   });
 
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -1602,7 +1632,9 @@ function renderCalendar() {
     const isSel   = ds === calSelectedDate;
     const dots    = dt.slice(0,4).map(t => {
       const c = t.priority==='high'?'#f87272':t.priority==='low'?'#60d999':'#7c6dfa';
-      return `<span class="cal-dot" style="background:${c}"></span>`;
+      const isRecurOcc = t.recurType && t.recurType !== 'none' && t.deadline !== ds;
+      const extra = isRecurOcc ? ' cal-dot-recur' : '';
+      return `<span class="cal-dot${extra}" style="background:${c}" title="${t.text}${isRecurOcc?' (↻)':''}"></span>`;
     }).join('');
     cells += `<div class="cal-cell${isToday?' cal-today':''}${isSel?' cal-selected':''}" data-date="${ds}">
       <span class="cal-day-num">${d}</span>
@@ -1622,13 +1654,20 @@ function renderCalDayTasks() {
   if (!calSelectedDate) { panel.innerHTML = ''; return; }
   const [y, m, d] = calSelectedDate.split('-');
   const label = `${parseInt(d)} ${TR_MONTHS[parseInt(m)-1]} ${y}`;
-  const dayTasks = tasks.filter(t => t.deadline === calSelectedDate);
+  const dayTasks = tasks.filter(t => {
+    if (t.deadline === calSelectedDate) return true;
+    if (t.recurType && t.recurType !== 'none')
+      return getRecurOccurrences(t, calSelectedDate, calSelectedDate).length > 0;
+    return false;
+  });
   if (!dayTasks.length) { panel.innerHTML = `<p class="cal-day-empty">📅 ${label} — görev yok</p>`; return; }
   const items = dayTasks.map(t => {
     const c = t.priority==='high'?'#f87272':t.priority==='low'?'#60d999':'#7c6dfa';
+    const isRecurOcc = t.recurType && t.recurType !== 'none' && t.deadline !== calSelectedDate;
+    const recurBadge = isRecurOcc ? `<span class="cal-recur-badge">↻</span>` : '';
     return `<div class="cal-task-item${isDone(t)?' cal-task-done':''}" data-id="${t.id}">
       <span class="cal-task-dot" style="background:${c}"></span>
-      <span class="cal-task-text">${t.text}</span>
+      <span class="cal-task-text">${t.text}</span>${recurBadge}
     </div>`;
   }).join('');
   panel.innerHTML = `<div class="cal-day-header">📅 ${label}</div>${items}`;
