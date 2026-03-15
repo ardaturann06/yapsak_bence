@@ -8,6 +8,85 @@
 const STORAGE_KEY  = 'yapsak-bence-v2';
 const THEME_KEY    = 'yapsak-bence-theme';
 const SETTINGS_KEY = 'yapsak-bence-settings';
+const XP_KEY       = 'yapsak-bence-xp';
+
+// ---- XP / Level System ----
+const XP_PER_LEVEL = 300;
+const XP_REWARDS   = { high: 50, normal: 30, low: 10 };
+const XP_BONUS_EARLY = 20;
+const LEVEL_NAMES  = ['Çaylak','Acemi','Gelişen','Yetenekli','Uzman','Usta','Efsane'];
+
+let xpTotal = 0;
+
+function loadXP() {
+  try { xpTotal = parseInt(localStorage.getItem(XP_KEY)) || 0; } catch {}
+  renderXPBar();
+}
+
+function saveXPLocal() {
+  localStorage.setItem(XP_KEY, xpTotal);
+}
+
+async function saveXPFirestore() {
+  if (!currentUser || !db) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set({ xp: xpTotal }, { merge: true });
+  } catch {}
+}
+
+async function loadXPFirestore() {
+  if (!currentUser || !db) return;
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists && doc.data().xp) {
+      xpTotal = doc.data().xp;
+      saveXPLocal();
+      renderXPBar();
+    }
+  } catch {}
+}
+
+function levelFromXP(xp) { return Math.floor(xp / XP_PER_LEVEL) + 1; }
+function levelName(level) { return LEVEL_NAMES[Math.min(level - 1, LEVEL_NAMES.length - 1)] + (level > LEVEL_NAMES.length ? ' ' + (level - LEVEL_NAMES.length + 1) : ''); }
+
+function renderXPBar() {
+  const level    = levelFromXP(xpTotal);
+  const xpInLevel = xpTotal - (level - 1) * XP_PER_LEVEL;
+  const pct      = Math.min(xpInLevel / XP_PER_LEVEL * 100, 100);
+  const badge    = $('xp-badge');
+  const fill     = $('xp-bar-fill');
+  const label    = $('xp-label');
+  if (!badge) return;
+  badge.textContent = `Lv.${level} ${levelName(level)}`;
+  fill.style.width  = pct + '%';
+  label.textContent = `${xpInLevel} / ${XP_PER_LEVEL} XP`;
+}
+
+async function addXP(task) {
+  const base     = XP_REWARDS[task.priority] ?? XP_REWARDS.normal;
+  const onTime   = task.deadline && new Date(task.deadline) >= new Date(new Date().toDateString());
+  const earned   = base + (onTime ? XP_BONUS_EARLY : 0);
+  const oldLevel = levelFromXP(xpTotal);
+  xpTotal += earned;
+  const newLevel = levelFromXP(xpTotal);
+  saveXPLocal();
+  await saveXPFirestore();
+  renderXPBar();
+  showXPToast(earned, onTime, newLevel > oldLevel ? newLevel : null);
+}
+
+function showXPToast(earned, bonus, newLevel) {
+  const toast = document.createElement('div');
+  toast.className = 'xp-toast';
+  let msg = `+${earned} XP`;
+  if (bonus) msg += ' ⚡ Zamanında!';
+  if (newLevel) msg = `🏆 Seviye ${newLevel}: ${levelName(newLevel)}!`;
+  toast.textContent = msg;
+  toast.classList.toggle('xp-toast-levelup', !!newLevel);
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 2200);
+}
 
 // ---- Settings ----
 let settings = {
@@ -307,6 +386,7 @@ async function toggleTask(id) {
   if (becomingDone) {
     playDoneSound();
     fireConfetti();
+    addXP(t);
   }
 
   if (currentUser && db) {
@@ -1468,6 +1548,8 @@ function showApp() {
     userBtn.innerHTML = `<img src="${currentUser.photoURL}" class="user-avatar" alt="profil" referrerpolicy="no-referrer" />`;
   }
   if (currentUser && db) $('share-btn').style.display = '';
+  loadXP();
+  loadXPFirestore();
   render();
 }
 
@@ -1483,6 +1565,7 @@ function enterGuestMode() {
   checkMissedReminders();
   hideLoading();
   authOverlay.classList.add('hidden');
+  loadXP();
   render();
 }
 
