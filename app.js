@@ -227,12 +227,43 @@ async function toggleTask(id) {
     }
   }
 
+  if (becomingDone) {
+    playDoneSound();
+    fireConfetti();
+  }
+
   if (currentUser && db) {
     await saveTaskToFirestore(t);
   } else {
     saveLocalTasks();
     render();
   }
+}
+
+// ---- Done effects ----
+function playDoneSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523, 659, 784]; // C5 E5 G5
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.12;
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    });
+  } catch {}
+}
+
+function fireConfetti() {
+  if (typeof confetti !== 'function') return;
+  confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b'] });
 }
 
 // ---- Stats ----
