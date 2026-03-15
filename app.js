@@ -252,6 +252,8 @@ function migrate(arr) {
     category:    t.category    || 'genel',
     status:      t.status      || (t.done ? 'done' : 'todo'),
     deadline:    t.deadline    || null,
+    recurType:   t.recurType   || 'none',
+    recurEnd:    t.recurEnd    || null,
     reminder:       t.reminder       || null,
     reminderRepeat: t.reminderRepeat || 'none',
     reminderEnd:    t.reminderEnd    || null,
@@ -322,6 +324,8 @@ async function addTask(text, priority, category, deadline, extras = {}) {
     priority, category,
     status:      extras.status   || 'todo',
     deadline:    deadline        || null,
+    recurType:   extras.recurType   || 'none',
+    recurEnd:    extras.recurEnd    || null,
     reminder:       extras.reminder       || null,
     reminderRepeat: extras.reminderRepeat || 'none',
     reminderEnd:    extras.reminderEnd    || null,
@@ -373,14 +377,23 @@ async function toggleTask(id) {
   const becomingDone = !isDone(t);
   t.status = becomingDone ? 'done' : 'todo';
 
-  // Recurring task: advance dates and reset to todo
+  // Deadline-based recurrence (recurType / recurEnd)
+  if (becomingDone && t.recurType && t.recurType !== 'none' && t.deadline) {
+    const end     = t.recurEnd ? new Date(t.recurEnd + 'T23:59:59') : null;
+    const nextDl  = advanceByRepeat(t.deadline, t.recurType, true);
+    if (!end || new Date(nextDl) <= end) {
+      t.status   = 'todo';
+      t.deadline = nextDl;
+    }
+  }
+  // Reminder-based recurrence (legacy reminderRepeat)
   if (becomingDone && t.reminderRepeat && t.reminderRepeat !== 'none' && t.reminder) {
     const end         = t.reminderEnd ? new Date(t.reminderEnd + 'T23:59:59') : null;
     const nextReminder = advanceByRepeat(t.reminder, t.reminderRepeat);
     if (!end || new Date(nextReminder) <= end) {
       t.status   = 'todo';
       t.reminder = nextReminder;
-      if (t.deadline) t.deadline = advanceByRepeat(t.deadline, t.reminderRepeat, true);
+      if (t.deadline && t.recurType === 'none') t.deadline = advanceByRepeat(t.deadline, t.reminderRepeat, true);
     }
   }
 
@@ -574,12 +587,22 @@ function makeTaskItem(task) {
     meta.appendChild(badge);
   }
 
+  if (task.recurType && task.recurType !== 'none') {
+    const recurLabels = { daily: 'Günlük', weekly: 'Haftalık', monthly: 'Aylık' };
+    const rb = document.createElement('span');
+    rb.className = 'tag tag-repeat';
+    const endStr = task.recurEnd ? ' → ' + fmtDate(task.recurEnd) : '';
+    rb.title = (recurLabels[task.recurType] || '') + endStr;
+    rb.textContent = '↻ ' + (recurLabels[task.recurType] || '') + endStr;
+    meta.appendChild(rb);
+  }
+
   if (task.reminderRepeat && task.reminderRepeat !== 'none') {
     const repeatLabels = { daily: 'Günlük', weekly: 'Haftalık', monthly: 'Aylık' };
     const rb = document.createElement('span');
     rb.className = 'tag tag-repeat';
     rb.title = repeatLabels[task.reminderRepeat] || '';
-    rb.textContent = '↻ ' + (repeatLabels[task.reminderRepeat] || '');
+    rb.textContent = '🔔↻ ' + (repeatLabels[task.reminderRepeat] || '');
     meta.appendChild(rb);
   }
 
@@ -685,6 +708,9 @@ function openModal(id) {
   $('modal-title').value        = task.text;
   $('modal-notes').value        = task.notes || '';
   $('modal-deadline').value     = task.deadline || '';
+  $('modal-recur-type').value   = task.recurType || 'none';
+  $('modal-recur-end').value    = task.recurEnd || '';
+  $('modal-recur-end-wrap').style.display = (task.recurType && task.recurType !== 'none') ? '' : 'none';
   $('modal-reminder').value     = task.reminder || '';
   $('modal-repeat').value       = task.reminderRepeat || 'none';
   $('modal-reminder-end').value = task.reminderEnd || '';
@@ -720,6 +746,8 @@ async function saveModal() {
   task.text           = $('modal-title').value.trim() || task.text;
   task.notes          = $('modal-notes').value;
   task.deadline       = $('modal-deadline').value || null;
+  task.recurType      = $('modal-recur-type').value || 'none';
+  task.recurEnd       = (task.recurType !== 'none' ? $('modal-recur-end').value : null) || null;
   task.reminder       = $('modal-reminder').value || null;
   task.reminderRepeat = $('modal-repeat').value || 'none';
   task.reminderEnd    = (task.reminderRepeat !== 'none' ? $('modal-reminder-end').value : null) || null;
@@ -1874,6 +1902,10 @@ $('bulk-cancel-btn').addEventListener('click', () => { selectMode = false; selec
 $('stats-close').addEventListener('click', () => { $('stats-overlay').classList.add('hidden'); $('stats-overlay').classList.remove('open'); });
 $('stats-overlay').addEventListener('click', e => { if (e.target === $('stats-overlay')) { $('stats-overlay').classList.add('hidden'); $('stats-overlay').classList.remove('open'); } });
 
+// Show/hide recur end date when recurType changes
+$('modal-recur-type').addEventListener('change', e => {
+  $('modal-recur-end-wrap').style.display = e.target.value === 'none' ? 'none' : '';
+});
 // Show/hide reminder end date when repeat changes
 $('modal-repeat').addEventListener('change', e => {
   $('modal-repeat-end-field').style.display = e.target.value === 'none' ? 'none' : '';

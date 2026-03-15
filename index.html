@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -296,11 +296,24 @@
             <input type="date" id="modal-deadline" class="modal-input" />
           </div>
           <div class="modal-field">
+            <label class="modal-label">Tekrarlama</label>
+            <select id="modal-recur-type" class="modal-input">
+              <option value="none">Tekrar yok</option>
+              <option value="daily">Her gün</option>
+              <option value="weekly">Her hafta</option>
+              <option value="monthly">Her ay</option>
+            </select>
+          </div>
+          <div class="modal-field" id="modal-recur-end-wrap" style="display:none">
+            <label class="modal-label">Tekrar Bitiş</label>
+            <input type="date" id="modal-recur-end" class="modal-input" />
+          </div>
+          <div class="modal-field">
             <label class="modal-label">Hatırlatıcı</label>
             <input type="datetime-local" id="modal-reminder" class="modal-input" />
           </div>
           <div class="modal-field">
-            <label class="modal-label">Tekrar</label>
+            <label class="modal-label">Hatırlatıcı Tekrar</label>
             <select id="modal-repeat" class="modal-input">
               <option value="none">Tekrar yok</option>
               <option value="daily">Her gün</option>
@@ -309,7 +322,7 @@
             </select>
           </div>
           <div class="modal-field" id="modal-repeat-end-field" style="display:none">
-            <label class="modal-label">Bitiş Tarihi</label>
+            <label class="modal-label">Hat. Bitiş</label>
             <input type="date" id="modal-reminder-end" class="modal-input" />
           </div>
           <div class="modal-field">
@@ -552,7 +565,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=13"></script>
-  <script src="app.js?v=13"></script>
+  <script src="firebase-config.js?v=14"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
