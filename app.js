@@ -1529,11 +1529,84 @@ function checkMissedReminders() {
 function switchView(v) {
   view = v;
   document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  listView.classList.toggle('hidden', v === 'kanban');
-  kanbanView.classList.toggle('hidden', v !== 'kanban');
-  $('filters').classList.toggle('hidden', v === 'kanban');
-  render();
+  listView.classList.toggle('hidden',           v !== 'list');
+  kanbanView.classList.toggle('hidden',         v !== 'kanban');
+  $('calendar-view').classList.toggle('hidden', v !== 'calendar');
+  $('filters').classList.toggle('hidden',       v !== 'list');
+  if (v === 'calendar') renderCalendar();
+  else render();
 }
+
+// ---- Calendar ----
+let calYear  = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let calSelectedDate = null;
+
+const TR_MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const TR_DAYS   = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+
+function renderCalendar() {
+  const grid  = $('cal-grid');
+  const title = $('cal-title');
+  if (!grid) return;
+  title.textContent = `${TR_MONTHS[calMonth]} ${calYear}`;
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay  = new Date(calYear, calMonth + 1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // Mon=0
+
+  const tasksByDate = {};
+  tasks.forEach(t => {
+    if (!t.deadline) return;
+    if (!tasksByDate[t.deadline]) tasksByDate[t.deadline] = [];
+    tasksByDate[t.deadline].push(t);
+  });
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const headers  = TR_DAYS.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += '<div class="cal-cell cal-cell-empty"></div>';
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dt = tasksByDate[ds] || [];
+    const isToday = ds === todayIso;
+    const isSel   = ds === calSelectedDate;
+    const dots    = dt.slice(0,4).map(t => {
+      const c = t.priority==='high'?'#f87272':t.priority==='low'?'#60d999':'#7c6dfa';
+      return `<span class="cal-dot" style="background:${c}"></span>`;
+    }).join('');
+    cells += `<div class="cal-cell${isToday?' cal-today':''}${isSel?' cal-selected':''}" data-date="${ds}">
+      <span class="cal-day-num">${d}</span>
+      <div class="cal-dots">${dots}</div>
+    </div>`;
+  }
+
+  grid.innerHTML = headers + cells;
+  grid.querySelectorAll('.cal-cell[data-date]').forEach(el => {
+    el.addEventListener('click', () => { calSelectedDate = el.dataset.date; renderCalendar(); renderCalDayTasks(); });
+  });
+  if (calSelectedDate) renderCalDayTasks();
+}
+
+function renderCalDayTasks() {
+  const panel = $('cal-day-tasks');
+  if (!calSelectedDate) { panel.innerHTML = ''; return; }
+  const [y, m, d] = calSelectedDate.split('-');
+  const label = `${parseInt(d)} ${TR_MONTHS[parseInt(m)-1]} ${y}`;
+  const dayTasks = tasks.filter(t => t.deadline === calSelectedDate);
+  if (!dayTasks.length) { panel.innerHTML = `<p class="cal-day-empty">📅 ${label} — görev yok</p>`; return; }
+  const items = dayTasks.map(t => {
+    const c = t.priority==='high'?'#f87272':t.priority==='low'?'#60d999':'#7c6dfa';
+    return `<div class="cal-task-item${isDone(t)?' cal-task-done':''}" data-id="${t.id}">
+      <span class="cal-task-dot" style="background:${c}"></span>
+      <span class="cal-task-text">${t.text}</span>
+    </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="cal-day-header">📅 ${label}</div>${items}`;
+  panel.querySelectorAll('.cal-task-item').forEach(el => el.addEventListener('click', () => openModal(el.dataset.id)));
+}
+
 
 // ---- AUTH ----
 const loadingScreen = $('loading-screen');
@@ -1974,6 +2047,16 @@ function initDailyQuote() {
 loadTheme();
 loadSettings();
 initSW();
+
+// Calendar navigation
+$('cal-prev').addEventListener('click', () => {
+  calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+});
+$('cal-next').addEventListener('click', () => {
+  calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+});
 
 // Settings events
 $('settings-btn').addEventListener('click', openSettings);
