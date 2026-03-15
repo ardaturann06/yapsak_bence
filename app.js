@@ -1594,13 +1594,11 @@ function getNextReminder(task) {
 }
 
 function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  Notification.requestPermission().then(p => {
-    if (p === 'granted') { notifBtn.style.color = 'var(--low)'; scheduleReminders(); }
-  });
+  // Now handled via Settings > Bildirimler toggle
+  openSettings();
 }
 function scheduleReminders() {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!settings.notifications || !('Notification' in window) || Notification.permission !== 'granted') return;
   tasks.forEach(task => {
     if (!task.reminder || isDone(task)) return;
     const next = getNextReminder(task);
@@ -1612,7 +1610,7 @@ function scheduleReminders() {
   });
 }
 function checkPastReminders() {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!settings.notifications || !('Notification' in window) || Notification.permission !== 'granted') return;
   const now = Date.now();
   tasks.forEach(task => {
     if (!task.reminder || isDone(task)) return;
@@ -1630,7 +1628,7 @@ function checkPastReminders() {
   });
 }
 function checkMissedReminders() {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!settings.notifications || !('Notification' in window) || Notification.permission !== 'granted') return;
   const LAST_KEY = 'yapsak-bence-last-check';
   const lastCheck = parseInt(localStorage.getItem(LAST_KEY) || '0', 10);
   const now = Date.now();
@@ -2022,7 +2020,7 @@ searchClear.addEventListener('click', () => {
 });
 
 themeBtn.addEventListener('click', toggleTheme);
-notifBtn.addEventListener('click', requestNotifPermission);
+notifBtn.addEventListener('click', openSettings);
 $('stats-btn').addEventListener('click', openStats);
 $('share-btn').addEventListener('click', openShareModal);
 $('share-close').addEventListener('click', () => { $('share-overlay').classList.add('hidden'); $('share-overlay').classList.remove('open'); });
