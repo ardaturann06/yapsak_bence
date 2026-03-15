@@ -193,6 +193,8 @@ body {
 .done-pill b { color: var(--low); }
 .overdue-pill { border-color: var(--high); }
 .overdue-pill b { color: var(--high); }
+.streak-pill { border-color: #f8a72a; }
+.streak-pill b { color: #f8a72a; }
 
 /* ========== TOOLBAR ========== */
 .toolbar {

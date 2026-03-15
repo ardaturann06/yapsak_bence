@@ -9,6 +9,7 @@ const STORAGE_KEY  = 'yapsak-bence-v2';
 const THEME_KEY    = 'yapsak-bence-theme';
 const SETTINGS_KEY = 'yapsak-bence-settings';
 const XP_KEY       = 'yapsak-bence-xp';
+const STREAK_KEY   = 'yapsak-bence-streak';
 
 // ---- XP / Level System ----
 const XP_PER_LEVEL = 300;
@@ -387,6 +388,7 @@ async function toggleTask(id) {
     playDoneSound();
     fireConfetti();
     addXP(t);
+    recordTaskDone();
   }
 
   if (currentUser && db) {
@@ -1550,6 +1552,8 @@ function showApp() {
   if (currentUser && db) $('share-btn').style.display = '';
   loadXP();
   loadXPFirestore();
+  loadStreak();
+  loadStreakFirestore();
   initDailyQuote();
   render();
 }
@@ -1567,6 +1571,7 @@ function enterGuestMode() {
   hideLoading();
   authOverlay.classList.add('hidden');
   loadXP();
+  loadStreak();
   initDailyQuote();
   render();
 }
@@ -1837,6 +1842,84 @@ $('modal-delete').addEventListener('click', () => { if (editingId) deleteTask(ed
 $('subtask-add-btn').addEventListener('click', addSubtask);
 $('subtask-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && editingId) closeModal(); });
+
+// ---- Streak ----
+let streakData = { streak: 0, maxStreak: 0, lastDate: null };
+
+function todayStr() { return new Date().toDateString(); }
+function yesterdayStr() {
+  const d = new Date(); d.setDate(d.getDate() - 1); return d.toDateString();
+}
+
+function loadStreak() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STREAK_KEY));
+    if (saved) streakData = { ...streakData, ...saved };
+  } catch {}
+  // If last activity was before yesterday, reset streak
+  if (streakData.lastDate && streakData.lastDate !== todayStr() && streakData.lastDate !== yesterdayStr()) {
+    streakData.streak = 0;
+    saveStreakLocal();
+  }
+  renderStreak();
+}
+
+function saveStreakLocal() {
+  localStorage.setItem(STREAK_KEY, JSON.stringify(streakData));
+}
+
+async function saveStreakFirestore() {
+  if (!currentUser || !db) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set({ streak: streakData }, { merge: true });
+  } catch {}
+}
+
+async function loadStreakFirestore() {
+  if (!currentUser || !db) return;
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists && doc.data().streak) {
+      streakData = { ...streakData, ...doc.data().streak };
+      saveStreakLocal();
+      renderStreak();
+    }
+  } catch {}
+}
+
+async function recordTaskDone() {
+  const today = todayStr();
+  if (streakData.lastDate === today) return; // already counted today
+  const wasYesterday = streakData.lastDate === yesterdayStr();
+  streakData.streak = wasYesterday ? streakData.streak + 1 : 1;
+  streakData.maxStreak = Math.max(streakData.streak, streakData.maxStreak);
+  streakData.lastDate = today;
+  saveStreakLocal();
+  await saveStreakFirestore();
+  renderStreak();
+  checkStreakMilestone(streakData.streak);
+}
+
+function renderStreak() {
+  const pill = $('streak-pill');
+  if (!pill) return;
+  const s = streakData.streak;
+  pill.style.display = s > 0 ? '' : 'none';
+  pill.innerHTML = `🔥 <b>${s}</b> gün seri`;
+  pill.title = `En uzun seri: ${streakData.maxStreak} gün`;
+}
+
+function checkStreakMilestone(streak) {
+  const milestones = { 3: '3 günlük seri!', 7: 'Bir hafta seri!', 14: 'İki hafta seri!', 30: 'Bir ay seri! Efsanesin!' };
+  if (milestones[streak]) {
+    const toast = document.createElement('div');
+    toast.className = 'xp-toast xp-toast-levelup';
+    toast.textContent = `🔥 ${milestones[streak]}`;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
+  }
+}
 
 // ---- Daily Quote ----
 const QUOTES = [
