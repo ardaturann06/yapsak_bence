@@ -1610,6 +1610,18 @@ select.modal-input {
 }
 .settings-field .select { width: 100%; }
 
+/* Accent color swatches */
+.accent-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.accent-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+.accent-swatch:hover { transform: scale(1.15); }
+.accent-swatch.active { border-color: var(--text); box-shadow: 0 0 0 3px var(--bg); outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* Compact mode */
+.compact .task-item { padding: 8px 12px; }
+.compact .task-item .task-text { font-size: 0.88rem; }
+.compact .task-item .task-meta { gap: 4px; }
+.compact .task-item .tag { font-size: 0.62rem; padding: 1px 5px; }
+
 /* Toggle switch */
 .toggle-switch { position: relative; display: inline-flex; flex-shrink: 0; }
 .toggle-switch input { position: absolute; opacity: 0; width: 0; height: 0; }

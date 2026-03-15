@@ -97,7 +97,81 @@ let settings = {
   defaultPriority: 'normal',
   defaultCategory: 'genel',
   hideDone:        false,
+  accentColor:     '#7c6dfa',
+  language:        'tr',
+  pomoWork:        25,
+  pomoShort:       5,
+  pomoLong:        15,
+  notifications:   false,
+  compactMode:     false,
 };
+
+// ---- i18n ----
+const I18N = {
+  tr: {
+    'filter.all':        'Tümü',
+    'filter.todo':       'Yapılacak',
+    'filter.inprogress': 'Devam',
+    'filter.done':       'Bitti',
+    'filter.overdue':    '⚠ Gecikmiş',
+    'empty':             'Görev bulunamadı',
+    'kanban.todo':       'Yapılacak',
+    'kanban.inprogress': 'Devam Ediyor',
+    'kanban.done':       'Tamamlandı',
+    'stg.effects':       'Efektler',
+    'stg.tasklist':      'Görev Listesi',
+    'stg.defaults':      'Yeni Görev Varsayılanları',
+    'stg.appearance':    'Görünüm',
+    'stg.accentColor':   'Vurgu Rengi',
+    'stg.compact':       'Kompakt mod',
+    'stg.pomodoro':      'Pomodoro',
+    'stg.pomoWork':      'Çalışma (dk)',
+    'stg.pomoShort':     'Kısa Mola (dk)',
+    'stg.pomoLong':      'Uzun Mola (dk)',
+    'stg.notifications': 'Bildirimler',
+    'stg.notifLabel':    'Hatırlatıcı bildirimleri',
+  },
+  en: {
+    'filter.all':        'All',
+    'filter.todo':       'To Do',
+    'filter.inprogress': 'In Progress',
+    'filter.done':       'Done',
+    'filter.overdue':    '⚠ Overdue',
+    'empty':             'No tasks found',
+    'kanban.todo':       'To Do',
+    'kanban.inprogress': 'In Progress',
+    'kanban.done':       'Done',
+    'stg.effects':       'Effects',
+    'stg.tasklist':      'Task List',
+    'stg.defaults':      'New Task Defaults',
+    'stg.appearance':    'Appearance',
+    'stg.accentColor':   'Accent Color',
+    'stg.compact':       'Compact mode',
+    'stg.pomodoro':      'Pomodoro',
+    'stg.pomoWork':      'Work (min)',
+    'stg.pomoShort':     'Short Break (min)',
+    'stg.pomoLong':      'Long Break (min)',
+    'stg.notifications': 'Notifications',
+    'stg.notifLabel':    'Reminder notifications',
+  },
+};
+function t(key) {
+  const lang = settings.language || 'tr';
+  return (I18N[lang] && I18N[lang][key]) || I18N.tr[key] || key;
+}
+function applyLanguage() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+}
+
+function shadeColor(hex, amt) {
+  const n = parseInt(hex.replace('#',''), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 0xFF) + amt));
+  const b = Math.max(0, Math.min(255, (n & 0xFF) + amt));
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
 
 function loadSettings() {
   try {
@@ -114,23 +188,51 @@ function saveSettings() {
 }
 
 function applySettings() {
-  // Sync form defaults
   const ps = $('priority-select');
   const cs = $('category-select');
   if (ps) ps.value = settings.defaultPriority;
   if (cs) cs.value = settings.defaultCategory;
+
+  // Accent color
+  const accent = settings.accentColor || '#7c6dfa';
+  document.documentElement.style.setProperty('--accent', accent);
+  document.documentElement.style.setProperty('--accent-dim', shadeColor(accent, -28));
+
+  // Compact mode
+  document.body.classList.toggle('compact', !!settings.compactMode);
+
+  // Pomodoro durations (POMO_DURATIONS is declared later but object is mutable)
+  if (typeof POMO_DURATIONS !== 'undefined') {
+    POMO_DURATIONS.work  = (settings.pomoWork  || 25) * 60;
+    POMO_DURATIONS.short = (settings.pomoShort || 5)  * 60;
+    POMO_DURATIONS.long  = (settings.pomoLong  || 15) * 60;
+  }
+
+  // Language
+  applyLanguage();
+
+  // Active swatch highlight
+  document.querySelectorAll('.accent-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.color === accent);
+  });
 }
 
 function openSettings() {
   const drawer = $('settings-drawer');
   drawer.classList.add('open');
-  // populate controls
   setToggle('stg-sound',    settings.sound);
   setToggle('stg-confetti', settings.confetti);
   setToggle('stg-hidedone', settings.hideDone);
-  $('stg-sort').value     = settings.sortOrder;
-  $('stg-priority').value = settings.defaultPriority;
-  $('stg-category').value = settings.defaultCategory;
+  $('stg-sort').value      = settings.sortOrder;
+  $('stg-priority').value  = settings.defaultPriority;
+  $('stg-category').value  = settings.defaultCategory;
+  setToggle('stg-compact',  settings.compactMode);
+  $('stg-language').value  = settings.language || 'tr';
+  $('stg-pomo-work').value  = settings.pomoWork  || 25;
+  $('stg-pomo-short').value = settings.pomoShort || 5;
+  $('stg-pomo-long').value  = settings.pomoLong  || 15;
+  setToggle('stg-notif',    settings.notifications);
+  applySettings(); // refresh swatch active states
 }
 
 function closeSettings() {
@@ -2228,18 +2330,44 @@ $('settings-btn').addEventListener('click', openSettings);
 $('settings-close').addEventListener('click', closeSettings);
 $('settings-drawer').addEventListener('click', e => { if (e.target === $('settings-drawer')) closeSettings(); });
 
-['stg-sound','stg-confetti','stg-hidedone'].forEach(id => {
+['stg-sound','stg-confetti','stg-hidedone','stg-compact'].forEach(id => {
   $(id).addEventListener('change', e => {
-    const key = { 'stg-sound': 'sound', 'stg-confetti': 'confetti', 'stg-hidedone': 'hideDone' }[id];
+    const key = { 'stg-sound': 'sound', 'stg-confetti': 'confetti', 'stg-hidedone': 'hideDone', 'stg-compact': 'compactMode' }[id];
     settings[key] = e.target.checked;
     saveSettings();
   });
 });
-['stg-sort','stg-priority','stg-category'].forEach(id => {
+['stg-sort','stg-priority','stg-category','stg-language'].forEach(id => {
   $(id).addEventListener('change', e => {
-    const key = { 'stg-sort': 'sortOrder', 'stg-priority': 'defaultPriority', 'stg-category': 'defaultCategory' }[id];
+    const key = { 'stg-sort': 'sortOrder', 'stg-priority': 'defaultPriority', 'stg-category': 'defaultCategory', 'stg-language': 'language' }[id];
     settings[key] = e.target.value;
     saveSettings();
+  });
+});
+['stg-pomo-work','stg-pomo-short','stg-pomo-long'].forEach(id => {
+  $(id).addEventListener('change', e => {
+    const key = { 'stg-pomo-work': 'pomoWork', 'stg-pomo-short': 'pomoShort', 'stg-pomo-long': 'pomoLong' }[id];
+    const val = parseInt(e.target.value);
+    if (val > 0) { settings[key] = val; saveSettings(); }
+  });
+});
+$('stg-notif').addEventListener('change', e => {
+  settings.notifications = e.target.checked;
+  if (e.target.checked && 'Notification' in window) {
+    Notification.requestPermission().then(p => {
+      if (p !== 'granted') { settings.notifications = false; setToggle('stg-notif', false); }
+      saveSettings();
+    });
+  } else {
+    saveSettings();
+  }
+});
+// Accent color swatches
+document.querySelectorAll('.accent-swatch').forEach(s => {
+  s.addEventListener('click', () => {
+    settings.accentColor = s.dataset.color;
+    saveSettings();
+    openSettings(); // refresh active swatch state
   });
 });
 
