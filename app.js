@@ -93,7 +93,7 @@ function subscribeFirestore() {
   let firstSnap = true;
   fsListener = db.collection('users').doc(currentUser.uid)
     .collection('tasks').onSnapshot(snap => {
-      tasks = migrate(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      tasks = migrate(snap.docs.map(d => ({ id: d.id, ...d.data() }))).sort((a, b) => a.order - b.order);
       render();
       if (firstSnap) { firstSnap = false; checkMissedReminders(); }
     });
@@ -898,7 +898,7 @@ function initListDrag() {
     item.addEventListener('dragend', () => item.classList.remove('dragging'));
     item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
     item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
-    item.addEventListener('drop', e => {
+    item.addEventListener('drop', async e => {
       e.preventDefault();
       item.classList.remove('drag-over');
       if (!dragSrcId || dragSrcId === item.dataset.id || dragSrcList !== 'list') return;
@@ -907,8 +907,13 @@ function initListDrag() {
       if (srcIdx === -1 || destIdx === -1) return;
       const [moved] = tasks.splice(srcIdx, 1);
       tasks.splice(destIdx, 0, moved);
-      saveLocalTasks();
-      renderList();
+      tasks.forEach((t, i) => { t.order = i; });
+      if (currentUser && db) {
+        await Promise.all(tasks.map(t => saveTaskToFirestore(t)));
+      } else {
+        saveLocalTasks();
+        renderList();
+      }
     });
   });
 }
