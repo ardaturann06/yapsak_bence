@@ -276,37 +276,27 @@ function getConfettiInstance() {
   return confettiInstance;
 }
 
+let cleanerTimer = null;
+
 function fireConfetti() {
   const fire = getConfettiInstance();
   if (!fire) return;
-  fire({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b'], gravity: 0.4, ticks: 500 });
-  showBroomBtn();
+  fire({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#7c6dfa', '#60d999', '#f8a72a', '#ff6b6b'], gravity: 0.35, ticks: 600 });
+  if (cleanerTimer) clearTimeout(cleanerTimer);
+  cleanerTimer = setTimeout(spawnCleaner, 2500);
 }
 
-function showBroomBtn() {
-  let btn = document.getElementById('broom-btn');
-  if (!btn) {
-    btn = document.createElement('button');
-    btn.id = 'broom-btn';
-    btn.textContent = '🧹';
-    btn.title = 'Temizle';
-    btn.className = 'broom-btn';
-    btn.addEventListener('click', sweepConfetti);
-    document.body.appendChild(btn);
-  }
-  btn.style.display = '';
-  btn.classList.remove('sweeping');
-}
-
-function sweepConfetti() {
-  const btn = document.getElementById('broom-btn');
-  if (!btn) return;
-  btn.classList.add('sweeping');
-  setTimeout(() => {
-    btn.style.display = 'none';
-    btn.classList.remove('sweeping');
-    if (confettiInstance) confettiInstance.reset();
-  }, 600);
+function spawnCleaner() {
+  const existing = document.getElementById('cleaner-car');
+  if (existing) existing.remove();
+  const car = document.createElement('div');
+  car.id = 'cleaner-car';
+  car.innerHTML = '🚛';
+  car.className = 'cleaner-car';
+  document.body.appendChild(car);
+  // Midway through — reset confetti so it looks like the car collected it
+  setTimeout(() => { if (confettiInstance) confettiInstance.reset(); }, 1200);
+  car.addEventListener('animationend', () => car.remove());
 }
 
 // ---- Stats ----
