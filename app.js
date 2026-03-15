@@ -201,12 +201,12 @@ function applySettings() {
   // Compact mode
   document.body.classList.toggle('compact', !!settings.compactMode);
 
-  // Pomodoro durations (POMO_DURATIONS is declared later but object is mutable)
-  if (typeof POMO_DURATIONS !== 'undefined') {
+  // Pomodoro durations — guarded because POMO_DURATIONS is declared later in the file
+  try {
     POMO_DURATIONS.work  = (settings.pomoWork  || 25) * 60;
     POMO_DURATIONS.short = (settings.pomoShort || 5)  * 60;
     POMO_DURATIONS.long  = (settings.pomoLong  || 15) * 60;
-  }
+  } catch { /* not yet initialized; Pomodoro init reads settings directly */ }
 
   // Language
   applyLanguage();
@@ -2222,7 +2222,11 @@ loadSettings();
 initSW();
 
 // ---- Pomodoro ----
-const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 };
+const POMO_DURATIONS = {
+  get work()  { return (settings.pomoWork  || 25) * 60; },
+  get short() { return (settings.pomoShort || 5)  * 60; },
+  get long()  { return (settings.pomoLong  || 15) * 60; },
+};
 let pomoMode        = 'work';
 let pomoSecondsLeft = POMO_DURATIONS.work;
 let pomoRunning     = false;
