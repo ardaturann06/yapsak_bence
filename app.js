@@ -1059,6 +1059,53 @@ function openStats() {
   ov.classList.add('open');
 }
 
+// ---- Share ----
+async function openShareModal() {
+  if (!currentUser || !db) return;
+  const ov = $('share-overlay');
+  ov.classList.remove('hidden');
+  ov.classList.add('open');
+  $('share-link-input').value = 'Oluşturuluyor...';
+  await createShareLink();
+}
+
+async function createShareLink() {
+  const shareId = genId();
+  const shareTasks = tasks.map(({ id, text, status, priority, category, deadline, tags, notes, subtasks }) =>
+    ({ id, text, status, priority, category, deadline: deadline||null, tags: tags||[], notes: notes||'', subtasks: subtasks||[] }));
+  await db.collection('shares').doc(shareId).set({
+    ownerName: currentUser.displayName || currentUser.email || 'Kullanıcı',
+    createdAt: new Date().toISOString(),
+    tasks: shareTasks,
+  });
+  const url = `${location.origin}${location.pathname}?share=${shareId}`;
+  $('share-link-input').value = url;
+}
+
+async function loadSharedList(shareId) {
+  if (!db) return false;
+  try {
+    const doc = await db.collection('shares').doc(shareId).get();
+    if (!doc.exists) return false;
+    const data = doc.data();
+    // Show read-only shared view
+    document.title = `${data.ownerName} — Yapsak Bence`;
+    tasks = migrate(data.tasks || []);
+    // Hide add form, filters, bottom actions, toolbar buttons
+    $('add-form').style.display = 'none';
+    $('bottom-actions').style.display = 'none';
+    $('select-btn').style.display = 'none';
+    $('share-btn').style.display = 'none';
+    // Show banner
+    const banner = document.createElement('div');
+    banner.className = 'share-banner';
+    banner.textContent = `${data.ownerName} tarafından paylaşıldı — Salt Okunur`;
+    document.querySelector('.app').prepend(banner);
+    render();
+    return true;
+  } catch { return false; }
+}
+
 // ---- Bulk Select ----
 function toggleSelectMode() {
   selectMode = !selectMode;
@@ -1303,6 +1350,7 @@ function showApp() {
   if (currentUser && currentUser.photoURL) {
     userBtn.innerHTML = `<img src="${currentUser.photoURL}" class="user-avatar" alt="profil" referrerpolicy="no-referrer" />`;
   }
+  if (currentUser && db) $('share-btn').style.display = '';
   render();
 }
 
@@ -1527,6 +1575,18 @@ searchClear.addEventListener('click', () => {
 themeBtn.addEventListener('click', toggleTheme);
 notifBtn.addEventListener('click', requestNotifPermission);
 $('stats-btn').addEventListener('click', openStats);
+$('share-btn').addEventListener('click', openShareModal);
+$('share-close').addEventListener('click', () => { $('share-overlay').classList.add('hidden'); $('share-overlay').classList.remove('open'); });
+$('share-overlay').addEventListener('click', e => { if (e.target === $('share-overlay')) { $('share-overlay').classList.add('hidden'); $('share-overlay').classList.remove('open'); } });
+$('share-copy-btn').addEventListener('click', () => {
+  const input = $('share-link-input');
+  navigator.clipboard.writeText(input.value).then(() => {
+    const msg = $('share-copied-msg');
+    msg.style.display = '';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  });
+});
+$('share-new-btn').addEventListener('click', createShareLink);
 $('select-btn').addEventListener('click', toggleSelectMode);
 $('bulk-complete-btn').addEventListener('click', bulkComplete);
 $('bulk-delete-btn').addEventListener('click', bulkDelete);
@@ -1584,9 +1644,18 @@ if ('Notification' in window && Notification.permission === 'granted') {
   notifBtn.style.color = 'var(--low)';
 }
 
+// Check for shared list URL
+const shareParam = new URLSearchParams(location.search).get('share');
+
 const fbReady = initFirebase();
 
-if (fbReady) {
+if (fbReady && shareParam) {
+  // Shared list view — no auth needed
+  loadSharedList(shareParam).then(ok => {
+    if (!ok) { document.body.innerHTML = '<p style="padding:2rem;color:#888">Paylaşılan liste bulunamadı.</p>'; }
+    else hideLoading();
+  });
+} else if (fbReady) {
   // Firebase configured: listen for auth state
   auth.onAuthStateChanged(user => {
     currentUser = user;

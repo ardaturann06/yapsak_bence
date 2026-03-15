@@ -1365,6 +1365,18 @@ select.modal-input {
   .attachments-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
 }
 
+/* ========== SHARE BANNER ========== */
+.share-banner {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 10px;
+}
+
 /* ========== BULK SELECT ========== */
 .task-item.selected { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); border-color: var(--accent); }
 .icon-btn.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); border-radius: var(--radius-sm); }
