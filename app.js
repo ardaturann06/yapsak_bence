@@ -38,6 +38,8 @@ let searchQ  = '';
 let editingId   = null;
 let dragSrcId   = null;
 let dragSrcList = null;
+let selectMode  = false;
+let selectedIds = new Set();
 
 // ---- Selectors ----
 const $ = id => document.getElementById(id);
@@ -318,14 +320,24 @@ function makeTaskItem(task) {
   li.dataset.priority = task.priority;
   li.draggable        = true;
 
+  if (selectMode) {
+    li.draggable = false;
+    if (selectedIds.has(task.id)) li.classList.add('selected');
+    li.addEventListener('click', e => { e.stopPropagation(); toggleSelectItem(task.id); });
+  }
+
   const chk = document.createElement('div');
   chk.className = 'task-check' + (isDone(task) ? ' checked' : '');
-  chk.addEventListener('click', e => { e.stopPropagation(); toggleTask(task.id); });
+  chk.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selectMode) toggleSelectItem(task.id);
+    else toggleTask(task.id);
+  });
 
   const content = document.createElement('div');
   content.className = 'task-content';
   content.style.cursor = 'pointer';
-  content.addEventListener('click', () => openModal(task.id));
+  content.addEventListener('click', () => { if (!selectMode) openModal(task.id); });
 
   const textEl = document.createElement('span');
   textEl.className = 'task-text';
@@ -1047,6 +1059,58 @@ function openStats() {
   ov.classList.add('open');
 }
 
+// ---- Bulk Select ----
+function toggleSelectMode() {
+  selectMode = !selectMode;
+  selectedIds.clear();
+  const btn = $('select-btn');
+  btn.classList.toggle('active', selectMode);
+  updateBulkBar();
+  renderList();
+}
+
+function toggleSelectItem(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateBulkBar();
+  renderList();
+}
+
+function updateBulkBar() {
+  const bar = $('bulk-bar');
+  if (!bar) return;
+  const count = selectedIds.size;
+  if (selectMode && count > 0) {
+    bar.classList.add('show');
+    $('bulk-count').textContent = count + ' seçildi';
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+async function bulkComplete() {
+  for (const id of selectedIds) {
+    const t = tasks.find(t => t.id === id);
+    if (t && !isDone(t)) {
+      t.status = 'done';
+      if (currentUser && db) await saveTaskToFirestore(t);
+    }
+  }
+  if (!currentUser || !db) { saveLocalTasks(); render(); }
+  selectedIds.clear();
+  selectMode = false;
+  $('select-btn').classList.remove('active');
+  updateBulkBar();
+}
+
+async function bulkDelete() {
+  for (const id of selectedIds) await deleteTask(id);
+  selectedIds.clear();
+  selectMode = false;
+  $('select-btn').classList.remove('active');
+  updateBulkBar();
+}
+
 // ---- CSV Export ----
 function exportCSV() {
   const headers = ['Görev', 'Durum', 'Öncelik', 'Kategori', 'Son Tarih', 'Hatırlatıcı', 'Etiketler', 'Notlar', 'Oluşturulma'];
@@ -1463,6 +1527,10 @@ searchClear.addEventListener('click', () => {
 themeBtn.addEventListener('click', toggleTheme);
 notifBtn.addEventListener('click', requestNotifPermission);
 $('stats-btn').addEventListener('click', openStats);
+$('select-btn').addEventListener('click', toggleSelectMode);
+$('bulk-complete-btn').addEventListener('click', bulkComplete);
+$('bulk-delete-btn').addEventListener('click', bulkDelete);
+$('bulk-cancel-btn').addEventListener('click', () => { selectMode = false; selectedIds.clear(); $('select-btn').classList.remove('active'); updateBulkBar(); renderList(); });
 $('stats-close').addEventListener('click', () => { $('stats-overlay').classList.add('hidden'); $('stats-overlay').classList.remove('open'); });
 $('stats-overlay').addEventListener('click', e => { if (e.target === $('stats-overlay')) { $('stats-overlay').classList.add('hidden'); $('stats-overlay').classList.remove('open'); } });
 

@@ -1365,6 +1365,18 @@ select.modal-input {
   .attachments-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
 }
 
+/* ========== BULK SELECT ========== */
+.task-item.selected { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); border-color: var(--accent); }
+.icon-btn.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); border-radius: var(--radius-sm); }
+
+.bulk-bar {
+  display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 14px; margin: 0 0 8px;
+}
+.bulk-bar.show { display: flex; }
+#bulk-count { font-size: 0.85rem; color: var(--text-muted); flex: 1; }
+
 /* ========== STATS MODAL ========== */
 .stats-modal { max-width: 480px; width: 100%; max-height: 85vh; overflow-y: auto; }
 .stats-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }

@@ -62,6 +62,9 @@
         <input type="search" id="search-input" placeholder="Ara..." autocomplete="off" />
         <button class="search-clear" id="search-clear" style="display:none">×</button>
       </div>
+      <button class="icon-btn" id="select-btn" title="Çoklu seçim">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </button>
       <div class="view-btns">
         <button class="view-btn active" data-view="list" title="Liste">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -141,6 +144,14 @@
         </div>
       </div>
     </form>
+
+    <!-- BULK BAR -->
+    <div class="bulk-bar" id="bulk-bar">
+      <span id="bulk-count"></span>
+      <button class="btn btn-save" id="bulk-complete-btn">Tamamla</button>
+      <button class="btn btn-delete-modal" id="bulk-delete-btn">Sil</button>
+      <button class="btn" id="bulk-cancel-btn">İptal</button>
+    </div>
 
     <!-- FILTERS (list view only) -->
     <div class="filters" id="filters">
