@@ -156,10 +156,13 @@ function saveLists() {
 
 async function saveListsFirestore() {
   if (!currentUser || !db) return;
-  // Firestore belge limiti 1MB — base64 gönderilmez, Storage URL'si gönderilir
+  // Ana user dokümanına base64 gönderilmez — ayrı listBgs/{listId} dokümanına kaydedilir
   const listsForSync = customLists.map(l => {
     if (l.bg && l.bg.type === 'image' && l.bg.value && l.bg.value.startsWith('data:')) {
-      return { ...l, bg: { type: 'image', value: '' } };
+      // Resmi ayrı dokümana kaydet
+      db.collection('users').doc(currentUser.uid).collection('listBgs').doc(l.id)
+        .set({ value: l.bg.value }).catch(() => {});
+      return { ...l, bg: { type: 'image', value: '__firestore__' } };
     }
     return l;
   });
@@ -172,6 +175,12 @@ async function loadListsFirestore() {
     const doc = await db.collection('users').doc(currentUser.uid).get();
     if (doc.exists && doc.data().lists) {
       customLists = doc.data().lists;
+      // __firestore__ placeholder olan resimleri ayrı koleksiyondan yükle
+      const bgPromises = customLists
+        .filter(l => l.bg && l.bg.type === 'image' && l.bg.value === '__firestore__')
+        .map(l => db.collection('users').doc(currentUser.uid).collection('listBgs').doc(l.id).get()
+          .then(d => { if (d.exists) l.bg.value = d.data().value; }).catch(() => {}));
+      await Promise.all(bgPromises);
       localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
       renderListChips();
       renderListOptions();
@@ -3325,37 +3334,21 @@ $('lp-bg-image').addEventListener('change', e => {
   e.target.value = '';
   const reader = new FileReader();
   reader.onload = ev => {
-    const dataUrl = ev.target.result;
     const img = new Image();
     img.onload = () => {
-      const max = 1920;
+      // Firestore'a sığması için max 800px, %60 kalite (~150-300KB base64)
+      const max = 800;
       let w = img.width, h = img.height;
       if (w > max) { h = Math.round(h * max / w); w = max; }
       if (h > max) { w = Math.round(w * max / h); h = max; }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob(blob => {
-        // Önce local'de göster, arka planda Storage'a yükle
-        const localUrl = URL.createObjectURL(blob);
-        applyListBg({ type: 'image', value: localUrl });
-        if (storage && currentUser) {
-          const path = `listBg/${currentUser.uid}/${selectedList}.jpg`;
-          const ref = storage.ref(path);
-          ref.put(blob, { contentType: 'image/jpeg' }).then(() => ref.getDownloadURL()).then(url => {
-            saveListBg({ type: 'image', value: url });
-            URL.revokeObjectURL(localUrl);
-          }).catch(() => {
-            // Storage yükleme başarısız olursa base64 fallback
-            saveListBg({ type: 'image', value: canvas.toDataURL('image/jpeg', 0.85) });
-          });
-        } else {
-          saveListBg({ type: 'image', value: canvas.toDataURL('image/jpeg', 0.85) });
-        }
-      }, 'image/jpeg', 0.85);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      saveListBg({ type: 'image', value: dataUrl });
     };
-    img.onerror = () => saveListBg({ type: 'image', value: dataUrl });
-    img.src = dataUrl;
+    img.onerror = () => saveListBg({ type: 'image', value: ev.target.result });
+    img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 });
