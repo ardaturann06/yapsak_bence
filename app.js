@@ -2415,6 +2415,16 @@ function downloadCSV(filename, headers, rows) {
   URL.revokeObjectURL(a.href);
 }
 
+function saveProfileFirestore() {
+  if (!currentUser || !db) return;
+  const profile = {};
+  if (currentUser.displayName) profile.displayName = currentUser.displayName;
+  if (currentUser.email)       profile.email       = currentUser.email;
+  if (currentUser.photoURL)    profile.photoURL    = currentUser.photoURL;
+  if (Object.keys(profile).length)
+    db.collection('users').doc(currentUser.uid).set(profile, { merge: true }).catch(() => {});
+}
+
 function showApp() {
   hideLoading();
   authOverlay.classList.add('hidden');
@@ -2423,6 +2433,7 @@ function showApp() {
     userBtn.innerHTML = `<img src="${currentUser.photoURL}" class="user-avatar" alt="profil" referrerpolicy="no-referrer" />`;
   }
   if (currentUser && db) $('share-btn').style.display = '';
+  saveProfileFirestore();
   loadXP();
   loadStreak();
   loadLists();
