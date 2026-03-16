@@ -2075,7 +2075,8 @@ async function checkAdmin() {
   try {
     const doc = await db.collection('admins').doc(currentUser.uid).get();
     isAdmin = doc.exists;
-    $('admin-btn').style.display = isAdmin ? '' : 'none';
+    $('admin-btn').style.display = 'none';
+    $('sidebar-admin-btn').style.display = isAdmin ? '' : 'none';
     if (isAdmin) checkAnnouncement();
   } catch {}
 }
@@ -2925,6 +2926,7 @@ $('new-list-name').addEventListener('keydown', e => {
 
 // ---- Admin Panel Event Listeners ----
 $('admin-btn').addEventListener('click', openAdminPanel);
+$('sidebar-admin-btn').addEventListener('click', () => { closeMenu(); openAdminPanel(); });
 $('admin-close').addEventListener('click', closeAdminPanel);
 $('admin-ann-send').addEventListener('click', sendAnnouncement);
 $('admin-search').addEventListener('input', e => renderAdminUsers(e.target.value));
