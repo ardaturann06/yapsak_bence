@@ -484,10 +484,12 @@ function toggleLpBgPicker() {
 function openLpBgPicker() {
   renderLpBgSwatches();
   $('lp-bg-picker').classList.add('open');
+  $('lp-bg-backdrop').classList.add('open');
 }
 
 function closeLpBgPicker() {
   $('lp-bg-picker').classList.remove('open');
+  $('lp-bg-backdrop').classList.remove('open');
 }
 
 function renderLpBgSwatches() {
@@ -3295,6 +3297,8 @@ $('settings-drawer').addEventListener('click', e => { if (e.target === $('settin
 
 // List page bg picker listeners
 $('lp-bg-btn').addEventListener('click', toggleLpBgPicker);
+$('lp-bg-handle').addEventListener('click', closeLpBgPicker);
+$('lp-bg-backdrop').addEventListener('click', closeLpBgPicker);
 $('lp-bg-image-btn').addEventListener('click', () => $('lp-bg-image').click());
 $('lp-bg-image').addEventListener('change', e => {
   const file = e.target.files[0];

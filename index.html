@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=39" />
+  <link rel="stylesheet" href="style.css?v=40" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -447,8 +447,11 @@
     </header>
 
     <!-- List BG Picker (slides up from bottom) -->
+    <!-- File input must be OUTSIDE transformed element (iOS bug fix) -->
+    <input type="file" id="lp-bg-image" accept="image/*" style="display:none" />
+    <div class="lp-bg-backdrop" id="lp-bg-backdrop"></div>
     <div class="lp-bg-picker" id="lp-bg-picker">
-      <div class="lp-bg-picker-handle"></div>
+      <div class="lp-bg-picker-handle" id="lp-bg-handle"></div>
       <div class="lp-bg-picker-body">
         <div class="bg-presets-label">Renkler</div>
         <div class="bg-swatches" id="lp-bg-color-swatches"></div>
@@ -456,7 +459,6 @@
         <div class="bg-swatches" id="lp-bg-gradient-swatches"></div>
         <div class="bg-presets-label">Resim</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input type="file" id="lp-bg-image" accept="image/*" style="display:none" />
           <button class="btn" id="lp-bg-image-btn">📷 Resim Seç</button>
           <button class="btn" id="lp-bg-reset">↩ Varsayılan</button>
         </div>
@@ -932,7 +934,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=39"></script>
-  <script src="app.js?v=39"></script>
+  <script src="firebase-config.js?v=40"></script>
+  <script src="app.js?v=40"></script>
 </body>
 </html>
