@@ -150,6 +150,7 @@ function renderListChips() {
     btn.addEventListener('click', e => {
       if (e.target.classList.contains('list-chip-del')) return;
       selectedList = btn.dataset.list || null;
+      closeMenu();
       renderListChips();
       render();
     });
@@ -193,6 +194,16 @@ function deleteList(id) {
   renderListChips();
   renderListOptions();
   render();
+}
+
+function openMenu() {
+  $('sidebar-backdrop').classList.remove('hidden');
+  $('sidebar-backdrop').classList.add('open');
+}
+function closeMenu() {
+  const bd = $('sidebar-backdrop');
+  bd.classList.remove('open');
+  setTimeout(() => bd.classList.add('hidden'), 260);
 }
 
 function openCreateList() {
@@ -2514,6 +2525,11 @@ document.querySelectorAll('.accent-swatch').forEach(s => {
 if ('Notification' in window && Notification.permission === 'granted') {
   notifBtn.style.color = 'var(--low)';
 }
+
+// ---- Sidebar (Lists) Event Listeners ----
+$('menu-btn').addEventListener('click', openMenu);
+$('sidebar-close').addEventListener('click', closeMenu);
+$('sidebar-backdrop').addEventListener('click', e => { if (e.target === $('sidebar-backdrop')) closeMenu(); });
 
 // ---- Create List Event Listeners ----
 $('create-list-cancel').addEventListener('click', closeCreateList);

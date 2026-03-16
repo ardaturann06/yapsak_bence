@@ -1679,15 +1679,23 @@ select.modal-input {
 .stats-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); }
 .stats-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
-/* ========== LIST CHIPS ========== */
-.list-chips { display: flex; gap: 6px; padding: 6px 16px 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-.list-chips::-webkit-scrollbar { display: none; }
-.list-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 99px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 0.78rem; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
-.list-chip:hover { border-color: var(--accent); color: var(--text); }
-.list-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-.list-chip-del { margin-left: 2px; font-size: 0.85rem; opacity: 0.6; line-height: 1; }
-.list-chip-del:hover { opacity: 1; }
-.list-chip-add { border-style: dashed; color: var(--accent); border-color: var(--accent); background: transparent; }
+/* ========== LEFT SIDEBAR ========== */
+.sidebar-backdrop { position: fixed; inset: 0; z-index: 9400; background: rgba(0,0,0,.45); backdrop-filter: blur(2px); }
+.sidebar-backdrop.hidden { display: none; }
+.sidebar-panel { position: absolute; top: 0; left: 0; bottom: 0; width: 260px; background: var(--surface); border-right: 1px solid var(--border); box-shadow: 4px 0 24px rgba(0,0,0,.3); display: flex; flex-direction: column; transform: translateX(-100%); transition: transform 0.26s cubic-bezier(.4,0,.2,1); }
+.sidebar-backdrop.open .sidebar-panel { transform: translateX(0); }
+.sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 16px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.sidebar-title { font-size: 1rem; font-weight: 700; }
+.sidebar-body { flex: 1; overflow-y: auto; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+
+/* LIST CHIPS — sidebar vertical style */
+.list-chip { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); border: none; background: transparent; color: var(--text-muted); font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: all 0.13s; width: 100%; text-align: left; position: relative; }
+.list-chip:hover { background: var(--surface2); color: var(--text); }
+.list-chip.active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 700; }
+.list-chip-del { margin-left: auto; font-size: 0.95rem; opacity: 0; line-height: 1; padding: 0 2px; }
+.list-chip:hover .list-chip-del { opacity: 0.5; }
+.list-chip-del:hover { opacity: 1 !important; }
+.list-chip-add { border: 1.5px dashed var(--accent); color: var(--accent); background: transparent; justify-content: center; margin-top: 8px; border-radius: var(--radius-sm); }
 .list-chip-add:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
 /* ========== CREATE LIST MODAL ========== */
