@@ -477,10 +477,10 @@ function applyListBg(bg) {
     screen.style.backgroundImage = '';
     screen.classList.remove('lp-custom-bg');
   } else if (bg.type === 'image') {
+    screen.style.background = '';
     screen.style.backgroundImage = `url(${bg.value})`;
     screen.style.backgroundSize = 'cover';
     screen.style.backgroundPosition = 'center';
-    screen.style.background = '';
     screen.classList.add('lp-custom-bg');
   } else {
     screen.style.background = bg.value;
@@ -3315,28 +3315,27 @@ $('lp-bg-handle').addEventListener('click', closeLpBgPicker);
 $('lp-bg-backdrop').addEventListener('click', closeLpBgPicker);
 // lp-bg-image-btn is a <label for="lp-bg-image"> — no click handler needed
 $('lp-bg-image').addEventListener('change', e => {
-  alert('1) change event, selectedList=' + selectedList + ', files=' + e.target.files.length);
   const file = e.target.files[0];
-  if (!file) { alert('dosya yok'); return; }
-  alert('2) dosya: ' + file.name + ' ' + file.size + 'B');
+  if (!file) return;
   if (file.size > 5 * 1024 * 1024) { alert("Resim 5 MB'dan küçük olmalı."); return; }
-  const canvas = document.createElement('canvas');
-  const img = new Image();
-  img.onload = () => {
-    alert('3) img.onload w=' + img.width + ' h=' + img.height);
-    const max = 1920;
-    let w = img.width, h = img.height;
-    if (w > max) { h = Math.round(h * max / w); w = max; }
-    if (h > max) { w = Math.round(w * max / h); h = max; }
-    canvas.width = w; canvas.height = h;
-    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    alert('4) dataUrl uzunluk=' + dataUrl.length);
-    saveListBg({ type: 'image', value: dataUrl });
-    alert('5) saveListBg tamamlandı');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    const img = new Image();
+    img.onload = () => {
+      const max = 1920;
+      let w = img.width, h = img.height;
+      if (w > max) { h = Math.round(h * max / w); w = max; }
+      if (h > max) { w = Math.round(w * max / h); h = max; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      saveListBg({ type: 'image', value: canvas.toDataURL('image/jpeg', 0.85) });
+    };
+    img.onerror = () => saveListBg({ type: 'image', value: dataUrl });
+    img.src = dataUrl;
   };
-  img.onerror = (err) => alert('img.onerror: ' + err);
-  img.src = URL.createObjectURL(file);
+  reader.readAsDataURL(file);
   e.target.value = '';
 });
 $('lp-bg-reset').addEventListener('click', () => saveListBg({ type: 'default', value: '' }));
