@@ -415,8 +415,14 @@ function loadSettings() {
   applySettings();
 }
 
+async function saveSettingsFirestore() {
+  if (!currentUser || !db) return;
+  try { await db.collection('users').doc(currentUser.uid).set({ settings }, { merge: true }); } catch {}
+}
+
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  saveSettingsFirestore();
   applySettings();
   render();
 }
@@ -484,7 +490,8 @@ let auth          = null;
 let db            = null;
 let currentUser   = null;
 let guestMode     = false;
-let fsListener    = null;
+let fsListener      = null;
+let userDocListener = null;
 
 function initFirebase() {
   try {
@@ -569,6 +576,46 @@ function subscribeFirestore() {
       render();
       if (firstSnap) { firstSnap = false; checkMissedReminders(); }
     });
+}
+
+function subscribeUserDoc() {
+  if (userDocListener) userDocListener();
+  if (!currentUser || !db) return;
+  let firstSnap = true;
+  userDocListener = db.collection('users').doc(currentUser.uid)
+    .onSnapshot(doc => {
+      if (!doc.exists) return;
+      const d = doc.data();
+
+      // XP
+      if (d.xp !== undefined && d.xp !== xpTotal) {
+        xpTotal = d.xp; saveXPLocal(); renderXPBar();
+      }
+
+      // Streak
+      if (d.streak) {
+        const r = d.streak;
+        if (r.lastDate && (!streakData.lastDate || r.lastDate >= streakData.lastDate)) {
+          streakData = { ...streakData, ...r }; saveStreakLocal(); renderStreak();
+        }
+      }
+
+      // Lists
+      if (d.lists) {
+        customLists = d.lists;
+        localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
+        renderListChips(); renderListOptions();
+      }
+
+      // Settings — sadece ilk snapshot'ta uygula (oturum ortasında ezmemek için)
+      if (firstSnap && d.settings) {
+        settings = { ...settings, ...d.settings };
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        applySettings();
+      }
+
+      firstSnap = false;
+    }, () => {}); // sessizce hata yut
 }
 
 function saveTasks() {
@@ -2027,14 +2074,12 @@ function showApp() {
   }
   if (currentUser && db) $('share-btn').style.display = '';
   loadXP();
-  loadXPFirestore();
   loadStreak();
-  loadStreakFirestore();
   loadLists();
-  loadListsFirestore();
   initDailyQuote();
   renderListChips();
   renderListOptions();
+  subscribeUserDoc();
   render();
 }
 
@@ -2757,11 +2802,13 @@ if (fbReady && shareParam) {
     if (user) {
       guestMode = false;
       subscribeFirestore();
+      subscribeUserDoc();
       showApp();
       scheduleReminders();
       setInterval(checkPastReminders, 30000);
     } else {
       if (fsListener) { fsListener(); fsListener = null; }
+      if (userDocListener) { userDocListener(); userDocListener = null; }
       tasks = [];
       showAuth();
     }
