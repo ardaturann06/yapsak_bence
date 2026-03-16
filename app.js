@@ -156,9 +156,11 @@ function saveLists() {
 
 async function saveListsFirestore() {
   if (!currentUser || !db) return;
-  // Firestore belge limiti 1MB — base64 resim datası gönderilmez
+  // Firestore belge limiti 1MB — base64 gönderilmez, Storage URL'si gönderilir
   const listsForSync = customLists.map(l => {
-    if (l.bg && l.bg.type === 'image') return { ...l, bg: { type: 'image', value: '' } };
+    if (l.bg && l.bg.type === 'image' && l.bg.value && l.bg.value.startsWith('data:')) {
+      return { ...l, bg: { type: 'image', value: '' } };
+    }
     return l;
   });
   try { await db.collection('users').doc(currentUser.uid).set({ lists: listsForSync }, { merge: true }); } catch {}
@@ -616,6 +618,7 @@ function setToggle(id, val) {
 let firebaseReady = false;
 let auth          = null;
 let db            = null;
+let storage       = null;
 let currentUser   = null;
 let guestMode     = false;
 let fsListener      = null;
@@ -625,8 +628,9 @@ function initFirebase() {
   try {
     if (!firebaseConfig || firebaseConfig.apiKey === 'BURAYA_API_KEY') return false;
     firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db   = firebase.firestore();
+    auth    = firebase.auth();
+    db      = firebase.firestore();
+    storage = firebase.storage();
     firebaseReady = true;
     return true;
   } catch (e) {
@@ -3317,7 +3321,8 @@ $('lp-bg-backdrop').addEventListener('click', closeLpBgPicker);
 $('lp-bg-image').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { alert("Resim 5 MB'dan küçük olmalı."); return; }
+  if (file.size > 10 * 1024 * 1024) { alert("Resim 10 MB'dan küçük olmalı."); return; }
+  e.target.value = '';
   const reader = new FileReader();
   reader.onload = ev => {
     const dataUrl = ev.target.result;
@@ -3330,13 +3335,29 @@ $('lp-bg-image').addEventListener('change', e => {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      saveListBg({ type: 'image', value: canvas.toDataURL('image/jpeg', 0.85) });
+      canvas.toBlob(blob => {
+        // Önce local'de göster, arka planda Storage'a yükle
+        const localUrl = URL.createObjectURL(blob);
+        applyListBg({ type: 'image', value: localUrl });
+        if (storage && currentUser) {
+          const path = `listBg/${currentUser.uid}/${selectedList}.jpg`;
+          const ref = storage.ref(path);
+          ref.put(blob, { contentType: 'image/jpeg' }).then(() => ref.getDownloadURL()).then(url => {
+            saveListBg({ type: 'image', value: url });
+            URL.revokeObjectURL(localUrl);
+          }).catch(() => {
+            // Storage yükleme başarısız olursa base64 fallback
+            saveListBg({ type: 'image', value: canvas.toDataURL('image/jpeg', 0.85) });
+          });
+        } else {
+          saveListBg({ type: 'image', value: canvas.toDataURL('image/jpeg', 0.85) });
+        }
+      }, 'image/jpeg', 0.85);
     };
     img.onerror = () => saveListBg({ type: 'image', value: dataUrl });
     img.src = dataUrl;
   };
   reader.readAsDataURL(file);
-  e.target.value = '';
 });
 $('lp-bg-reset').addEventListener('click', () => saveListBg({ type: 'default', value: '' }));
 
