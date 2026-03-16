@@ -104,7 +104,16 @@ let selectedList    = null;
 let createListEmoji = '📋';
 let editingListId   = null;
 
-function allLists() { return [...DEFAULT_LISTS, ...customLists]; }
+function allLists() {
+  const overrides = new Map(customLists.map(l => [l.id, l]));
+  const defaults  = DEFAULT_LISTS.map(l => overrides.get(l.id) || l);
+  const extras    = customLists.filter(l => !DEFAULT_LISTS.find(d => d.id === l.id));
+  return [...defaults, ...extras];
+}
+// Sadece kullanıcı tarafından sıfırdan oluşturulan listeler (default override değil)
+function isUserCreated(id) {
+  return !!customLists.find(c => c.id === id) && !DEFAULT_LISTS.find(d => d.id === id);
+}
 
 function loadLists() {
   try { customLists = JSON.parse(localStorage.getItem(LISTS_KEY)) || []; } catch {}
@@ -137,18 +146,15 @@ function renderListChips() {
   const wrap = $('list-chips');
   if (!wrap) return;
   const all = allLists();
-  const isCustom = id => !!customLists.find(c => c.id === id);
   wrap.innerHTML =
     `<button class="list-chip${selectedList === null ? ' active' : ''}" data-list="">Tümü</button>` +
     all.map(l =>
       `<button class="list-chip${selectedList === l.id ? ' active' : ''}" data-list="${l.id}">` +
       `<span class="list-chip-label">${l.emoji} ${l.name}</span>` +
-      (isCustom(l.id)
-        ? `<span class="list-chip-actions">` +
-          `<span class="list-chip-edit" data-edit="${l.id}" title="Düzenle">✎</span>` +
-          `<span class="list-chip-del"  data-del="${l.id}"  title="Sil">×</span>` +
-          `</span>`
-        : '') +
+      `<span class="list-chip-actions">` +
+      `<span class="list-chip-edit" data-edit="${l.id}" title="Düzenle">✎</span>` +
+      (isUserCreated(l.id) ? `<span class="list-chip-del" data-del="${l.id}" title="Sil">×</span>` : '') +
+      `</span>` +
       `</button>`
     ).join('') +
     `<button class="list-chip list-chip-add" id="list-chip-add">＋ Yeni</button>`;
@@ -286,7 +292,7 @@ function openListModal(name = '', emoji = '📋', editId = null) {
 function openCreateList() { openListModal(); }
 
 function openEditList(id) {
-  const list = customLists.find(l => l.id === id);
+  const list = allLists().find(l => l.id === id);
   if (!list) return;
   openListModal(list.name, list.emoji, id);
 }
@@ -2688,8 +2694,13 @@ $('create-list-confirm').addEventListener('click', () => {
   const name = $('new-list-name').value.trim();
   if (!name) { $('new-list-name').focus(); return; }
   if (editingListId) {
-    const list = customLists.find(l => l.id === editingListId);
-    if (list) { list.name = name; list.emoji = createListEmoji; }
+    const existing = customLists.find(l => l.id === editingListId);
+    if (existing) {
+      existing.name = name; existing.emoji = createListEmoji;
+    } else {
+      // Default liste override olarak kaydet
+      customLists.push({ id: editingListId, name, emoji: createListEmoji });
+    }
     saveLists();
     renderListChips();
     renderListOptions();
