@@ -627,7 +627,6 @@ function setToggle(id, val) {
 let firebaseReady = false;
 let auth          = null;
 let db            = null;
-let storage       = null;
 let currentUser   = null;
 let guestMode     = false;
 let fsListener      = null;
@@ -637,9 +636,8 @@ function initFirebase() {
   try {
     if (!firebaseConfig || firebaseConfig.apiKey === 'BURAYA_API_KEY') return false;
     firebase.initializeApp(firebaseConfig);
-    auth    = firebase.auth();
-    db      = firebase.firestore();
-    storage = firebase.storage();
+    auth = firebase.auth();
+    db   = firebase.firestore();
     firebaseReady = true;
     return true;
   } catch (e) {
