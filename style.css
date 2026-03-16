@@ -1722,7 +1722,7 @@ select.modal-input {
 .create-list-title { font-size: 1rem; font-weight: 700; }
 .create-list-preview-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .create-list-preview { font-size: 2rem; width: 44px; text-align: center; flex-shrink: 0; }
-.create-list-emoji-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.create-list-emoji-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 16px; max-height: 180px; overflow-y: auto; padding-right: 2px; scrollbar-width: thin; }
 .emoji-preset { width: 36px; height: 36px; font-size: 1.2rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--surface2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.12s; }
 .emoji-preset:hover { border-color: var(--accent); }
 .emoji-preset.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
