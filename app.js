@@ -195,36 +195,49 @@ function deleteList(id) {
   render();
 }
 
+let lpOpen   = false;
+let lpFilter = 'all';
+
 function openListPage(id) {
   const list = allLists().find(l => l.id === id);
   if (!list) return;
   selectedList = id;
-  $('list-page-emoji').textContent = list.emoji;
-  $('list-page-name').textContent  = list.name;
-  const hdr = $('list-page-header');
-  hdr.style.display = 'flex';
-  requestAnimationFrame(() => hdr.classList.add('open'));
-  const cs = $('category-select');
-  if (cs) cs.value = id;
+  lpFilter     = 'all';
+  lpOpen       = true;
+  $('lp-emoji').textContent = list.emoji;
+  $('lp-name').textContent  = list.name;
+  $('lp-filters').querySelectorAll('[data-lpfilter]').forEach(b =>
+    b.classList.toggle('active', b.dataset.lpfilter === 'all')
+  );
+  $('list-page-screen').classList.add('open');
   closeMenu();
   renderListChips();
-  render();
+  renderListPage();
 }
 
 function closeListPage() {
+  lpOpen       = false;
   selectedList = null;
-  const hdr = $('list-page-header');
-  hdr.classList.remove('open');
-  setTimeout(() => { hdr.style.display = 'none'; }, 260);
+  $('list-page-screen').classList.remove('open');
   renderListChips();
   render();
 }
 
-function updateListPageCount() {
-  const el = $('list-page-count');
-  if (!el || !selectedList) return;
-  const n = tasks.filter(t => t.category === selectedList).length;
-  el.textContent = `${n} görev`;
+function renderListPage() {
+  if (!lpOpen) return;
+  const ul    = $('lp-task-list');
+  const empty = $('lp-empty');
+  ul.innerHTML = '';
+  let list = tasks.filter(t => t.category === selectedList);
+  if      (lpFilter === 'todo')       list = list.filter(t => t.status === 'todo');
+  else if (lpFilter === 'inprogress') list = list.filter(t => t.status === 'inprogress');
+  else if (lpFilter === 'done')       list = list.filter(t => isDone(t));
+  else if (lpFilter === 'overdue')    list = list.filter(t => isOverdue(t));
+  else                                list = list.filter(t => !isDone(t));
+  empty.classList.toggle('show', list.length === 0);
+  const total = tasks.filter(t => t.category === selectedList).length;
+  $('lp-count').textContent = `${total} görev`;
+  list.forEach(t => ul.appendChild(makeTaskItem(t)));
 }
 
 function openMenu() {
@@ -772,7 +785,7 @@ function updateStats() {
 // ---- Render ----
 function render() {
   updateStats();
-  updateListPageCount();
+  if (lpOpen) { renderListPage(); return; }
   if (view === 'list') renderList();
   else renderKanban();
 }
@@ -2555,8 +2568,24 @@ if ('Notification' in window && Notification.permission === 'granted') {
   notifBtn.style.color = 'var(--low)';
 }
 
-// ---- List Page Event Listeners ----
-$('list-page-back').addEventListener('click', closeListPage);
+// ---- List Page Screen Event Listeners ----
+$('lp-back').addEventListener('click', closeListPage);
+$('lp-add-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const input = $('lp-input');
+  const text  = input.value.trim();
+  if (!text || !selectedList) return;
+  await addTask(text, settings.defaultPriority, selectedList, null);
+  input.value = '';
+  input.focus();
+});
+$('lp-filters').querySelectorAll('[data-lpfilter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    lpFilter = btn.dataset.lpfilter;
+    $('lp-filters').querySelectorAll('[data-lpfilter]').forEach(b => b.classList.toggle('active', b === btn));
+    renderListPage();
+  });
+});
 
 // ---- Sidebar (Lists) Event Listeners ----
 $('menu-btn').addEventListener('click', openMenu);
