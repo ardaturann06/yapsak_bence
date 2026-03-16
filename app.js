@@ -10,6 +10,7 @@ const THEME_KEY    = 'yapsak-bence-theme';
 const SETTINGS_KEY = 'yapsak-bence-settings';
 const XP_KEY       = 'yapsak-bence-xp';
 const STREAK_KEY   = 'yapsak-bence-streak';
+const LISTS_KEY    = 'yapsak-bence-lists';
 
 // ---- XP / Level System ----
 const XP_PER_LEVEL = 300;
@@ -87,6 +88,135 @@ function showXPToast(earned, bonus, newLevel) {
   document.body.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('show'));
   setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 2200);
+}
+
+// ---- Lists ----
+const DEFAULT_LISTS = [
+  { id: 'genel',     name: 'Genel',     emoji: '📋' },
+  { id: 'is',        name: 'İş',        emoji: '💼' },
+  { id: 'kisisel',   name: 'Kişisel',   emoji: '👤' },
+  { id: 'alisveris', name: 'Alışveriş', emoji: '🛒' },
+  { id: 'saglik',    name: 'Sağlık',    emoji: '❤️' },
+];
+const EMOJI_PRESETS = ['📋','💼','👤','🛒','❤️','🎯','📚','🏋️','🎮','✈️','🏠','💡','🎵','🌿','🔧','⭐','🔔','📦','🎨','🚀'];
+let customLists  = [];
+let selectedList = null;
+let createListEmoji = '📋';
+
+function allLists() { return [...DEFAULT_LISTS, ...customLists]; }
+
+function loadLists() {
+  try { customLists = JSON.parse(localStorage.getItem(LISTS_KEY)) || []; } catch {}
+}
+
+function saveLists() {
+  localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
+  saveListsFirestore();
+}
+
+async function saveListsFirestore() {
+  if (!currentUser || !db) return;
+  try { await db.collection('users').doc(currentUser.uid).set({ lists: customLists }, { merge: true }); } catch {}
+}
+
+async function loadListsFirestore() {
+  if (!currentUser || !db) return;
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists && doc.data().lists) {
+      customLists = doc.data().lists;
+      localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
+      renderListChips();
+      renderListOptions();
+    }
+  } catch {}
+}
+
+function renderListChips() {
+  const wrap = $('list-chips');
+  if (!wrap) return;
+  const all = allLists();
+  wrap.innerHTML =
+    `<button class="list-chip${selectedList === null ? ' active' : ''}" data-list="">Tümü</button>` +
+    all.map(l =>
+      `<button class="list-chip${selectedList === l.id ? ' active' : ''}" data-list="${l.id}">` +
+      `${l.emoji} ${l.name}` +
+      (customLists.find(c => c.id === l.id) ? ` <span class="list-chip-del" data-del="${l.id}">×</span>` : '') +
+      `</button>`
+    ).join('') +
+    `<button class="list-chip list-chip-add" id="list-chip-add">＋ Yeni</button>`;
+
+  wrap.querySelectorAll('.list-chip[data-list]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      if (e.target.classList.contains('list-chip-del')) return;
+      selectedList = btn.dataset.list || null;
+      renderListChips();
+      render();
+    });
+  });
+  wrap.querySelectorAll('.list-chip-del').forEach(span => {
+    span.addEventListener('click', e => {
+      e.stopPropagation();
+      const listName = allLists().find(l => l.id === span.dataset.del)?.name || '';
+      if (!confirm(`"${listName}" listesini sil?`)) return;
+      deleteList(span.dataset.del);
+    });
+  });
+  const addBtn = $('list-chip-add');
+  if (addBtn) addBtn.addEventListener('click', openCreateList);
+}
+
+function renderListOptions() {
+  const all = allLists();
+  const opts = all.map(l => `<option value="${l.id}">${l.emoji} ${l.name}</option>`).join('');
+  ['category-select', 'modal-category', 'stg-category'].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = opts;
+    el.value = all.find(l => l.id === cur) ? cur : 'genel';
+  });
+}
+
+function createList(name, emoji) {
+  const id = 'list_' + Date.now().toString(36);
+  customLists.push({ id, name: name.trim(), emoji });
+  saveLists();
+  renderListChips();
+  renderListOptions();
+}
+
+function deleteList(id) {
+  customLists = customLists.filter(l => l.id !== id);
+  if (selectedList === id) selectedList = null;
+  saveLists();
+  renderListChips();
+  renderListOptions();
+  render();
+}
+
+function openCreateList() {
+  createListEmoji = '📋';
+  const overlay = $('create-list-overlay');
+  const grid = $('create-list-emoji-grid');
+  grid.innerHTML = EMOJI_PRESETS.map(e =>
+    `<button class="emoji-preset${e === createListEmoji ? ' selected' : ''}" data-emoji="${e}">${e}</button>`
+  ).join('');
+  grid.querySelectorAll('.emoji-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      createListEmoji = btn.dataset.emoji;
+      grid.querySelectorAll('.emoji-preset').forEach(b => b.classList.toggle('selected', b === btn));
+      $('create-list-preview').textContent = createListEmoji;
+    });
+  });
+  $('create-list-preview').textContent = createListEmoji;
+  $('new-list-name').value = '';
+  overlay.classList.remove('hidden');
+  setTimeout(() => $('new-list-name').focus(), 50);
+}
+
+function closeCreateList() {
+  $('create-list-overlay').classList.add('hidden');
 }
 
 // ---- Settings ----
@@ -389,6 +519,7 @@ function filteredTasks() {
       t.category.toLowerCase().includes(q)
     );
   }
+  if (selectedList) list = list.filter(t => t.category === selectedList);
   if (filter === 'all')             list = list.filter(t => !isDone(t));
   else if (filter === 'todo')       list = list.filter(t => t.status === 'todo');
   else if (filter === 'inprogress') list = list.filter(t => t.status === 'inprogress');
@@ -1794,7 +1925,11 @@ function showApp() {
   loadXPFirestore();
   loadStreak();
   loadStreakFirestore();
+  loadLists();
+  loadListsFirestore();
   initDailyQuote();
+  renderListChips();
+  renderListOptions();
   render();
 }
 
@@ -1812,7 +1947,10 @@ function enterGuestMode() {
   authOverlay.classList.add('hidden');
   loadXP();
   loadStreak();
+  loadLists();
   initDailyQuote();
+  renderListChips();
+  renderListOptions();
   render();
 }
 
@@ -2376,6 +2514,21 @@ document.querySelectorAll('.accent-swatch').forEach(s => {
 if ('Notification' in window && Notification.permission === 'granted') {
   notifBtn.style.color = 'var(--low)';
 }
+
+// ---- Create List Event Listeners ----
+$('create-list-cancel').addEventListener('click', closeCreateList);
+$('create-list-close').addEventListener('click', closeCreateList);
+$('create-list-overlay').addEventListener('click', e => { if (e.target === $('create-list-overlay')) closeCreateList(); });
+$('create-list-confirm').addEventListener('click', () => {
+  const name = $('new-list-name').value.trim();
+  if (!name) { $('new-list-name').focus(); return; }
+  createList(name, createListEmoji);
+  closeCreateList();
+});
+$('new-list-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('create-list-confirm').click();
+  if (e.key === 'Escape') closeCreateList();
+});
 
 // Check for shared list URL
 const shareParam = new URLSearchParams(location.search).get('share');

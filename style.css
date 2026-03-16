@@ -1678,3 +1678,28 @@ select.modal-input {
 .stats-legend { display: flex; flex-direction: column; gap: 8px; }
 .stats-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); }
 .stats-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ========== LIST CHIPS ========== */
+.list-chips { display: flex; gap: 6px; padding: 6px 16px 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.list-chips::-webkit-scrollbar { display: none; }
+.list-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 99px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 0.78rem; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.list-chip:hover { border-color: var(--accent); color: var(--text); }
+.list-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.list-chip-del { margin-left: 2px; font-size: 0.85rem; opacity: 0.6; line-height: 1; }
+.list-chip-del:hover { opacity: 1; }
+.list-chip-add { border-style: dashed; color: var(--accent); border-color: var(--accent); background: transparent; }
+.list-chip-add:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* ========== CREATE LIST MODAL ========== */
+.create-list-overlay { position: fixed; inset: 0; z-index: 9600; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); }
+.create-list-overlay.hidden { display: none; }
+.create-list-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); width: 320px; max-width: calc(100vw - 32px); padding: 20px; }
+.create-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.create-list-title { font-size: 1rem; font-weight: 700; }
+.create-list-preview-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.create-list-preview { font-size: 2rem; width: 44px; text-align: center; flex-shrink: 0; }
+.create-list-emoji-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.emoji-preset { width: 36px; height: 36px; font-size: 1.2rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--surface2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.12s; }
+.emoji-preset:hover { border-color: var(--accent); }
+.emoji-preset.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.create-list-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
