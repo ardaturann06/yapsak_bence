@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=38" />
+  <link rel="stylesheet" href="style.css?v=39" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -443,7 +443,25 @@
         <span class="lp-name" id="lp-name"></span>
       </div>
       <span class="lp-count" id="lp-count"></span>
+      <button class="icon-btn" id="lp-bg-btn" title="Arkaplan">🎨</button>
     </header>
+
+    <!-- List BG Picker (slides up from bottom) -->
+    <div class="lp-bg-picker" id="lp-bg-picker">
+      <div class="lp-bg-picker-handle"></div>
+      <div class="lp-bg-picker-body">
+        <div class="bg-presets-label">Renkler</div>
+        <div class="bg-swatches" id="lp-bg-color-swatches"></div>
+        <div class="bg-presets-label">Degradeler</div>
+        <div class="bg-swatches" id="lp-bg-gradient-swatches"></div>
+        <div class="bg-presets-label">Resim</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="file" id="lp-bg-image" accept="image/*" style="display:none" />
+          <button class="btn" id="lp-bg-image-btn">📷 Resim Seç</button>
+          <button class="btn" id="lp-bg-reset">↩ Varsayılan</button>
+        </div>
+      </div>
+    </div>
     <form class="add-form lp-add-form" id="lp-add-form">
       <div class="input-row">
         <input type="text" id="lp-input" placeholder="Görev ekle..." maxlength="200" autocomplete="off" />
@@ -772,22 +790,6 @@
           </select>
         </div>
 
-        <div class="settings-section-title">🎨 Arkaplan</div>
-
-        <div class="bg-presets-label">Renkler</div>
-        <div class="bg-swatches" id="bg-color-swatches"></div>
-
-        <div class="bg-presets-label">Degradeler</div>
-        <div class="bg-swatches" id="bg-gradient-swatches"></div>
-
-        <div class="bg-presets-label">Resim</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="file" id="stg-bg-image" accept="image/*" style="display:none" />
-          <button class="btn" id="stg-bg-image-btn">📷 Resim Seç</button>
-          <button class="btn" id="stg-bg-reset">↩ Varsayılan</button>
-        </div>
-        <div id="stg-bg-preview" class="bg-preview-strip"></div>
-
         <div class="settings-section-title" data-i18n="stg.defaults">Yeni Görev Varsayılanları</div>
 
         <div class="settings-field">
@@ -930,7 +932,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=38"></script>
-  <script src="app.js?v=38"></script>
+  <script src="firebase-config.js?v=39"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>

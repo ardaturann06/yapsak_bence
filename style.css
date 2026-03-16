@@ -1665,6 +1665,17 @@ select.modal-input {
 .bg-preview-strip.show { display: block; }
 .bg-preview-strip img { width: 100%; height: 100%; object-fit: cover; }
 
+/* List page bg picker (slides up from bottom) */
+.lp-bg-picker { position: absolute; left: 0; right: 0; bottom: 0; z-index: 100; background: var(--surface); border-radius: var(--radius) var(--radius) 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,0.3); transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); }
+.lp-bg-picker.open { transform: translateY(0); }
+.lp-bg-picker-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 10px auto 0; }
+.lp-bg-picker-body { padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 8px; }
+
+/* List page with custom bg */
+.list-page-screen { position: relative; }
+.list-page-screen.lp-custom-bg .lp-header { background: rgba(0,0,0,0.35); backdrop-filter: blur(8px); }
+.list-page-screen.lp-custom-bg .lp-add-form { background: rgba(0,0,0,0.25); backdrop-filter: blur(6px); border-radius: var(--radius); margin: 0 10px; }
+
 /* App with custom background */
 .app.custom-bg { background: transparent !important; }
 
