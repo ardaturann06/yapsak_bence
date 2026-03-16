@@ -2251,12 +2251,20 @@ function buildUserMenu(user) {
     <div class="user-menu-info">
       <div class="user-menu-name">${name}</div>
       ${email ? `<div class="user-menu-email">${email}</div>` : ''}
+      <div class="user-menu-uid" id="user-menu-uid" title="Admin için gerekli UID">${user.uid}</div>
+      <button class="user-menu-copy" id="copy-uid-btn">UID Kopyala</button>
     </div>
     <button class="user-menu-btn danger" id="btn-signout">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Çıkış Yap
     </button>
   `;
+  $('copy-uid-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(user.uid).then(() => {
+      $('copy-uid-btn').textContent = '✓ Kopyalandı!';
+      setTimeout(() => { $('copy-uid-btn').textContent = 'UID Kopyala'; }, 2000);
+    });
+  });
   $('btn-signout').addEventListener('click', () => {
     auth.signOut();
     menu.classList.remove('open');
