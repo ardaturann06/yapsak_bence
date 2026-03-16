@@ -929,7 +929,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
   <!-- iOS fix: file input must be direct child of body, outside any fixed/transformed element -->
-  <input type="file" id="lp-bg-image" accept="image/*" style="display:none" />
+  <input type="file" id="lp-bg-image" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" />
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
