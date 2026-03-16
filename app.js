@@ -141,13 +141,27 @@ function loadLists() {
 }
 
 function saveLists() {
-  localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
+  try {
+    localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
+  } catch (e) {
+    // localStorage quota aşıldıysa resim verisini çıkarıp tekrar dene
+    const stripped = customLists.map(l => {
+      if (l.bg && l.bg.type === 'image') return { ...l, bg: { type: 'default', value: '' } };
+      return l;
+    });
+    try { localStorage.setItem(LISTS_KEY, JSON.stringify(stripped)); } catch {}
+  }
   saveListsFirestore();
 }
 
 async function saveListsFirestore() {
   if (!currentUser || !db) return;
-  try { await db.collection('users').doc(currentUser.uid).set({ lists: customLists }, { merge: true }); } catch {}
+  // Firestore belge limiti 1MB — base64 resim datası gönderilmez
+  const listsForSync = customLists.map(l => {
+    if (l.bg && l.bg.type === 'image') return { ...l, bg: { type: 'image', value: '' } };
+    return l;
+  });
+  try { await db.collection('users').doc(currentUser.uid).set({ lists: listsForSync }, { merge: true }); } catch {}
 }
 
 async function loadListsFirestore() {
@@ -450,10 +464,10 @@ function saveListBg(bg) {
     const def = DEFAULT_LISTS.find(l => l.id === selectedList);
     if (def) customLists.push({ ...def, bg });
   }
-  saveLists();
   applyListBg(bg);
   renderLpBgSwatches();
   closeLpBgPicker();
+  saveLists();
 }
 
 function applyListBg(bg) {
