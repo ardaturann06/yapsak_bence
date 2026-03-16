@@ -2065,6 +2065,136 @@ function hideLoading() {
   loadingScreen.classList.add('hidden');
 }
 
+// ---- Admin Panel ----
+let isAdmin    = false;
+let adminUsers = [];
+let adminTab   = 'users';
+
+async function checkAdmin() {
+  if (!currentUser || !db) return;
+  try {
+    const doc = await db.collection('admins').doc(currentUser.uid).get();
+    isAdmin = doc.exists;
+    $('admin-btn').style.display = isAdmin ? '' : 'none';
+    if (isAdmin) checkAnnouncement();
+  } catch {}
+}
+
+async function checkAnnouncement() {
+  if (!db) return;
+  try {
+    const snap = await db.collection('announcements').orderBy('createdAt', 'desc').limit(1).get();
+    if (snap.empty) return;
+    const ann = snap.docs[0].data();
+    const seenKey = 'ann-seen-' + snap.docs[0].id;
+    if (sessionStorage.getItem(seenKey)) return;
+    showAnnBanner(ann.text, snap.docs[0].id, seenKey);
+  } catch {}
+}
+
+function showAnnBanner(text, id, seenKey) {
+  const banner = document.createElement('div');
+  banner.className = 'ann-banner';
+  banner.innerHTML = `<span class="ann-icon">📢</span><span class="ann-text">${text}</span><button class="ann-close">✕</button>`;
+  banner.querySelector('.ann-close').addEventListener('click', () => {
+    sessionStorage.setItem(seenKey, '1');
+    banner.remove();
+  });
+  document.querySelector('.app').prepend(banner);
+}
+
+async function openAdminPanel() {
+  $('admin-screen').classList.add('open');
+  await loadAdminData();
+}
+
+function closeAdminPanel() {
+  $('admin-screen').classList.remove('open');
+}
+
+async function loadAdminData() {
+  if (!db || !currentUser) return;
+  try {
+    const snap = await db.collection('users').get();
+    adminUsers = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    renderAdminStats();
+    renderAdminUsers();
+    renderAdminLeaderboard();
+    loadAdminAnnouncement();
+  } catch (e) {
+    $('admin-user-list').innerHTML = `<p style="padding:16px;color:var(--text-muted)">Veri yüklenemedi. Firestore kurallarını kontrol et.</p>`;
+  }
+}
+
+function renderAdminStats() {
+  const today = new Date().toDateString();
+  const activeToday = adminUsers.filter(u => u.streak?.lastDate === today).length;
+  const totalXP = adminUsers.reduce((s, u) => s + (u.xp || 0), 0);
+  $('adm-user-count').textContent  = adminUsers.length;
+  $('adm-task-count').textContent  = '—';
+  $('adm-xp-total').textContent    = totalXP.toLocaleString('tr');
+  $('adm-active-today').textContent = activeToday;
+}
+
+function renderAdminUsers(query = '') {
+  const list = $('admin-user-list');
+  const q = query.toLowerCase();
+  let users = adminUsers;
+  if (q) users = users.filter(u => (u.email||'').toLowerCase().includes(q) || (u.displayName||'').toLowerCase().includes(q));
+  users = [...users].sort((a, b) => (b.xp||0) - (a.xp||0));
+  list.innerHTML = users.length ? users.map(u => adminUserCard(u)).join('') : `<p style="padding:16px;color:var(--text-muted)">Kullanıcı bulunamadı.</p>`;
+}
+
+function renderAdminLeaderboard() {
+  const list = $('admin-leaderboard-list');
+  const sorted = [...adminUsers].sort((a, b) => (b.xp||0) - (a.xp||0)).slice(0, 20);
+  list.innerHTML = sorted.map((u, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+    return adminUserCard(u, medal);
+  }).join('');
+}
+
+function adminUserCard(u, prefix = '') {
+  const name   = u.displayName || u.email || u.uid.slice(0, 8);
+  const xp     = u.xp || 0;
+  const level  = levelFromXP(xp);
+  const streak = u.streak?.streak || 0;
+  const photo  = u.photoURL ? `<img src="${u.photoURL}" class="admin-user-avatar" referrerpolicy="no-referrer" />` : `<div class="admin-user-avatar admin-user-avatar-placeholder">${name[0]?.toUpperCase()}</div>`;
+  return `<div class="admin-user-card">
+    ${prefix ? `<span class="admin-medal">${prefix}</span>` : ''}
+    ${photo}
+    <div class="admin-user-info">
+      <div class="admin-user-name">${name}</div>
+      <div class="admin-user-meta">Lv.${level} · ${xp} XP · 🔥${streak} seri</div>
+    </div>
+  </div>`;
+}
+
+async function loadAdminAnnouncement() {
+  try {
+    const snap = await db.collection('announcements').orderBy('createdAt', 'desc').limit(1).get();
+    const el = $('admin-ann-current');
+    if (snap.empty) { el.textContent = 'Aktif duyuru yok.'; return; }
+    const d = snap.docs[0].data();
+    el.innerHTML = `<b>Mevcut duyuru:</b> ${d.text} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(d.createdAt?.toDate ? d.createdAt.toDate() : d.createdAt).toLocaleDateString('tr')})</span>`;
+  } catch {}
+}
+
+async function sendAnnouncement() {
+  const text = $('admin-ann-input').value.trim();
+  if (!text) return;
+  try {
+    await db.collection('announcements').add({
+      text,
+      createdAt: new Date(),
+      createdBy: currentUser.uid,
+    });
+    $('admin-ann-input').value = '';
+    loadAdminAnnouncement();
+    alert('Duyuru gönderildi!');
+  } catch (e) { alert('Hata: ' + e.message); }
+}
+
 function showApp() {
   hideLoading();
   authOverlay.classList.add('hidden');
@@ -2080,6 +2210,7 @@ function showApp() {
   renderListChips();
   renderListOptions();
   subscribeUserDoc();
+  checkAdmin();
   render();
 }
 
@@ -2782,6 +2913,21 @@ $('create-list-confirm').addEventListener('click', () => {
 $('new-list-name').addEventListener('keydown', e => {
   if (e.key === 'Enter') $('create-list-confirm').click();
   if (e.key === 'Escape') closeCreateList();
+});
+
+// ---- Admin Panel Event Listeners ----
+$('admin-btn').addEventListener('click', openAdminPanel);
+$('admin-close').addEventListener('click', closeAdminPanel);
+$('admin-ann-send').addEventListener('click', sendAnnouncement);
+$('admin-search').addEventListener('input', e => renderAdminUsers(e.target.value));
+$('admin-ann-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnnouncement(); } });
+document.querySelectorAll('.admin-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    adminTab = btn.dataset.tab;
+    document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b === btn));
+    $('admin-tab-users').classList.toggle('hidden', adminTab !== 'users');
+    $('admin-tab-leaderboard').classList.toggle('hidden', adminTab !== 'leaderboard');
+  });
 });
 
 // Check for shared list URL

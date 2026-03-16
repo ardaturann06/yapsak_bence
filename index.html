@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=32" />
+  <link rel="stylesheet" href="style.css?v=33" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -37,6 +37,9 @@
           </button>
           <button class="icon-btn" id="share-btn" title="Listeyi paylaş" style="display:none">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+          <button class="icon-btn" id="admin-btn" title="Yönetici Paneli" style="display:none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           </button>
           <button class="icon-btn" id="settings-btn" title="Ayarlar">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -273,6 +276,57 @@
       <button class="btn" id="pomo-reset">Sıfırla</button>
     </div>
     <div class="pomo-session-info" id="pomo-session-info">🍅 <b id="pomo-session-count">0</b> seans tamamlandı</div>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div class="admin-screen" id="admin-screen">
+    <header class="admin-header">
+      <div class="admin-header-left">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <span>Yönetici Paneli</span>
+      </div>
+      <button class="icon-btn" id="admin-close" title="Kapat">✕</button>
+    </header>
+    <div class="admin-body">
+
+      <!-- Stats Row -->
+      <div class="admin-stats-row" id="admin-stats-row">
+        <div class="admin-stat-card"><span class="admin-stat-val" id="adm-user-count">—</span><span class="admin-stat-lbl">Kullanıcı</span></div>
+        <div class="admin-stat-card"><span class="admin-stat-val" id="adm-task-count">—</span><span class="admin-stat-lbl">Görev</span></div>
+        <div class="admin-stat-card"><span class="admin-stat-val" id="adm-xp-total">—</span><span class="admin-stat-lbl">Toplam XP</span></div>
+        <div class="admin-stat-card"><span class="admin-stat-val" id="adm-active-today">—</span><span class="admin-stat-lbl">Bugün Aktif</span></div>
+      </div>
+
+      <!-- Announcement -->
+      <div class="admin-section">
+        <div class="admin-section-title">📢 Duyuru Gönder</div>
+        <div class="admin-ann-form">
+          <textarea id="admin-ann-input" placeholder="Tüm kullanıcılara gösterilecek duyuru..." rows="2"></textarea>
+          <button class="btn btn-save" id="admin-ann-send">Gönder</button>
+        </div>
+        <div class="admin-ann-current" id="admin-ann-current"></div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="users">👥 Kullanıcılar</button>
+        <button class="admin-tab" data-tab="leaderboard">🏆 Liderlik</button>
+      </div>
+
+      <!-- Users Tab -->
+      <div class="admin-tab-content" id="admin-tab-users">
+        <div class="admin-search-wrap">
+          <input id="admin-search" class="modal-input" placeholder="Kullanıcı ara..." />
+        </div>
+        <div class="admin-user-list" id="admin-user-list"></div>
+      </div>
+
+      <!-- Leaderboard Tab -->
+      <div class="admin-tab-content hidden" id="admin-tab-leaderboard">
+        <div class="admin-user-list" id="admin-leaderboard-list"></div>
+      </div>
+
+    </div>
   </div>
 
   <!-- LIST PAGE SCREEN (full-screen) -->
@@ -742,7 +796,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=32"></script>
-  <script src="app.js?v=32"></script>
+  <script src="firebase-config.js?v=33"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>
