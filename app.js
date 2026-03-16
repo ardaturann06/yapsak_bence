@@ -600,6 +600,12 @@ function subscribeUserDoc() {
         }
       }
 
+      // Personal special days
+      if (d.personalDays) {
+        personalDays = d.personalDays;
+        localStorage.setItem(SPECIAL_DAYS_KEY, JSON.stringify(personalDays));
+      }
+
       // Lists
       if (d.lists) {
         customLists = d.lists;
@@ -1950,6 +1956,147 @@ function switchView(v) {
   else render();
 }
 
+// ---- Special Days ----
+const SPECIAL_DAYS_KEY = 'yapsak-bence-special-days';
+
+const NATIONAL_HOLIDAYS = {
+  '01-01': { name: 'Yılbaşı',                                    emoji: '🎆', color: '#f59e0b' },
+  '04-23': { name: 'Ulusal Egemenlik ve Çocuk Bayramı',          emoji: '🎈', color: '#f59e0b' },
+  '05-01': { name: 'Emek ve Dayanışma Bayramı',                  emoji: '🌷', color: '#f59e0b' },
+  '05-19': { name: "Atatürk'ü Anma, Gençlik ve Spor Bayramı",   emoji: '🏃', color: '#f59e0b' },
+  '07-15': { name: 'Demokrasi ve Millî Birlik Günü',             emoji: '🇹🇷', color: '#f59e0b' },
+  '08-30': { name: 'Zafer Bayramı',                              emoji: '⚔️', color: '#f59e0b' },
+  '10-29': { name: 'Cumhuriyet Bayramı',                         emoji: '🇹🇷', color: '#f59e0b' },
+};
+
+const RELIGIOUS_HOLIDAYS = {
+  '2025-03-30': { name: 'Ramazan Bayramı (1. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2025-03-31': { name: 'Ramazan Bayramı (2. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2025-04-01': { name: 'Ramazan Bayramı (3. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2025-06-06': { name: 'Kurban Bayramı (1. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2025-06-07': { name: 'Kurban Bayramı (2. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2025-06-08': { name: 'Kurban Bayramı (3. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2025-06-09': { name: 'Kurban Bayramı (4. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2026-03-19': { name: 'Ramazan Bayramı (1. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2026-03-20': { name: 'Ramazan Bayramı (2. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2026-03-21': { name: 'Ramazan Bayramı (3. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2026-05-26': { name: 'Kurban Bayramı (1. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2026-05-27': { name: 'Kurban Bayramı (2. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2026-05-28': { name: 'Kurban Bayramı (3. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2026-05-29': { name: 'Kurban Bayramı (4. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2027-03-08': { name: 'Ramazan Bayramı (1. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2027-03-09': { name: 'Ramazan Bayramı (2. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2027-03-10': { name: 'Ramazan Bayramı (3. Gün)', emoji: '🌙', color: '#8b5cf6' },
+  '2027-05-17': { name: 'Kurban Bayramı (1. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2027-05-18': { name: 'Kurban Bayramı (2. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2027-05-19': { name: 'Kurban Bayramı (3. Gün)',  emoji: '🌿', color: '#10b981' },
+  '2027-05-20': { name: 'Kurban Bayramı (4. Gün)',  emoji: '🌿', color: '#10b981' },
+};
+
+let personalDays = [];
+
+function loadPersonalDays() {
+  try { personalDays = JSON.parse(localStorage.getItem(SPECIAL_DAYS_KEY)) || []; } catch { personalDays = []; }
+}
+
+function savePersonalDays() {
+  localStorage.setItem(SPECIAL_DAYS_KEY, JSON.stringify(personalDays));
+  if (currentUser && db) {
+    db.collection('users').doc(currentUser.uid).set({ personalDays }, { merge: true }).catch(() => {});
+  }
+}
+
+function getSpecialDaysForDate(ds) {
+  const md = ds.slice(5); // MM-DD
+  const result = [];
+  const nat = NATIONAL_HOLIDAYS[md];
+  if (nat) result.push({ ...nat, type: 'national' });
+  const rel = RELIGIOUS_HOLIDAYS[ds];
+  if (rel) result.push({ ...rel, type: 'religious' });
+  personalDays.forEach(pd => {
+    const match = pd.yearly ? pd.date.slice(5) === md : pd.date === ds;
+    if (match) result.push({ ...pd, type: 'personal' });
+  });
+  return result;
+}
+
+function openSpecialDaysModal() {
+  renderSpecialDaysList();
+  renderNationalDaysList();
+  $('special-days-overlay').classList.remove('hidden');
+}
+
+function closeSpecialDaysModal() {
+  $('special-days-overlay').classList.add('hidden');
+}
+
+function renderSpecialDaysList() {
+  const el = $('sd-personal-list');
+  if (!personalDays.length) { el.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted)">Henüz kişisel özel gün eklemediniz.</p>'; return; }
+  el.innerHTML = personalDays.map(pd => {
+    const dateLabel = pd.yearly
+      ? new Date(pd.date + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'long' }) + ' (her yıl)'
+      : new Date(pd.date + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `<div class="sd-personal-item">
+      <span class="sd-personal-emoji">${pd.emoji || '⭐'}</span>
+      <div class="sd-personal-info">
+        <div class="sd-personal-name">${pd.name}</div>
+        <div class="sd-personal-meta">${dateLabel}</div>
+      </div>
+      <button class="icon-btn" data-del="${pd.id}" title="Sil" style="color:var(--text-muted)">✕</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      personalDays = personalDays.filter(pd => pd.id !== btn.dataset.del);
+      savePersonalDays();
+      renderSpecialDaysList();
+      renderCalendar();
+    });
+  });
+}
+
+function renderNationalDaysList() {
+  const el = $('sd-national-list');
+  const all = [
+    ...Object.entries(NATIONAL_HOLIDAYS).map(([md, d]) => ({ ...d, md, type: 'national' })),
+    ...Object.entries(RELIGIOUS_HOLIDAYS).map(([ds, d]) => ({ ...d, ds, type: 'religious' })),
+  ];
+  const sorted = all.sort((a, b) => {
+    const ka = a.md || a.ds.slice(5);
+    const kb = b.md || b.ds.slice(5);
+    return ka.localeCompare(kb);
+  });
+  el.innerHTML = sorted.map(d => {
+    const dateStr = d.md
+      ? new Date(`2000-${d.md}T12:00:00`).toLocaleDateString('tr', { day: 'numeric', month: 'long' }) + ' (her yıl)'
+      : new Date(d.ds + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `<div class="sd-national-item">
+      <span class="sd-national-emoji">${d.emoji}</span>
+      <div class="sd-national-info">
+        <div class="sd-national-name">${d.name}</div>
+        <div class="sd-national-date">${dateStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addPersonalDay() {
+  const name  = $('sd-name').value.trim();
+  const emoji = $('sd-emoji').value.trim() || '⭐';
+  const date  = $('sd-date').value;
+  const yearly = $('sd-yearly').checked;
+  if (!name || !date) { $('sd-name').focus(); return; }
+  const id = 'pd' + Date.now().toString(36);
+  personalDays.push({ id, name, emoji, date, yearly });
+  savePersonalDays();
+  $('sd-name').value  = '';
+  $('sd-emoji').value = '';
+  $('sd-date').value  = '';
+  renderSpecialDaysList();
+  renderCalendar();
+}
+
 // ---- Calendar ----
 let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth();
@@ -2021,9 +2168,12 @@ function renderCalendar() {
       const extra = isRecurOcc ? ' cal-dot-recur' : '';
       return `<span class="cal-dot${extra}" style="background:${c}" title="${t.text}${isRecurOcc?' (↻)':''}"></span>`;
     }).join('');
-    cells += `<div class="cal-cell${isToday?' cal-today':''}${isSel?' cal-selected':''}" data-date="${ds}">
+    const specials = getSpecialDaysForDate(ds);
+    const specialEmoji = specials.length ? `<span class="cal-special-emoji">${specials[0].emoji}</span>` : '';
+    cells += `<div class="cal-cell${isToday?' cal-today':''}${isSel?' cal-selected':''}${specials.length?' cal-cell-special':''}" data-date="${ds}">
       <span class="cal-day-num">${d}</span>
       <div class="cal-dots">${dots}</div>
+      ${specialEmoji}
     </div>`;
   }
 
@@ -2045,7 +2195,16 @@ function renderCalDayTasks() {
       return getRecurOccurrences(t, calSelectedDate, calSelectedDate).length > 0;
     return false;
   });
-  if (!dayTasks.length) { panel.innerHTML = `<p class="cal-day-empty">📅 ${label} — görev yok</p>`; return; }
+  const specials = getSpecialDaysForDate(calSelectedDate);
+  const specialsHtml = specials.length
+    ? `<div class="cal-special-header">Özel Günler</div>` +
+      specials.map(s => `<div class="cal-special-item"><span class="cal-special-icon">${s.emoji}</span><span class="cal-special-name">${s.name}</span></div>`).join('')
+    : '';
+
+  if (!dayTasks.length) {
+    panel.innerHTML = `<div class="cal-day-header">📅 ${label}</div>${specialsHtml}<p class="cal-day-empty">${specials.length ? '' : '📅 '}Görev yok</p>`;
+    return;
+  }
   const items = dayTasks.map(t => {
     const c = t.priority==='high'?'#f87272':t.priority==='low'?'#60d999':'#7c6dfa';
     const isRecurOcc = t.recurType && t.recurType !== 'none' && t.deadline !== calSelectedDate;
@@ -2055,7 +2214,7 @@ function renderCalDayTasks() {
       <span class="cal-task-text">${t.text}</span>${recurBadge}
     </div>`;
   }).join('');
-  panel.innerHTML = `<div class="cal-day-header">📅 ${label}</div>${items}`;
+  panel.innerHTML = `<div class="cal-day-header">📅 ${label}</div>${specialsHtml}${items}`;
   panel.querySelectorAll('.cal-task-item').forEach(el => el.addEventListener('click', () => openModal(el.dataset.id)));
 }
 
@@ -2436,6 +2595,7 @@ function showApp() {
   }
   if (currentUser && db) $('share-btn').style.display = '';
   saveProfileFirestore();
+  loadPersonalDays();
   loadXP();
   loadStreak();
   loadLists();
@@ -2460,6 +2620,7 @@ function enterGuestMode() {
   checkMissedReminders();
   hideLoading();
   authOverlay.classList.add('hidden');
+  loadPersonalDays();
   loadXP();
   loadStreak();
   loadLists();
@@ -2977,6 +3138,13 @@ $('pomo-close').addEventListener('click', () => $('pomo-widget').classList.add('
 $('pomo-start').addEventListener('click', pomoStart);
 $('pomo-reset').addEventListener('click', pomoReset);
 document.querySelectorAll('.pomo-mode-btn').forEach(b => b.addEventListener('click', () => pomoSetMode(b.dataset.mode)));
+
+// Calendar — special days
+$('cal-special-btn').addEventListener('click', openSpecialDaysModal);
+$('special-days-close').addEventListener('click', closeSpecialDaysModal);
+$('special-days-overlay').addEventListener('click', e => { if (e.target === $('special-days-overlay')) closeSpecialDaysModal(); });
+$('sd-add-btn').addEventListener('click', addPersonalDay);
+$('sd-name').addEventListener('keydown', e => { if (e.key === 'Enter') addPersonalDay(); });
 
 // Calendar navigation
 $('cal-prev').addEventListener('click', () => {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=36" />
+  <link rel="stylesheet" href="style.css?v=37" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -239,9 +239,40 @@
         <button class="icon-btn" id="cal-next">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
+        <button class="icon-btn cal-special-btn" id="cal-special-btn" title="Özel Günler">⭐</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
       <div class="cal-day-tasks" id="cal-day-tasks"></div>
+    </div>
+
+    <!-- SPECIAL DAYS MODAL -->
+    <div class="modal-overlay hidden" id="special-days-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <span>⭐ Özel Günler</span>
+          <button class="icon-btn" id="special-days-close">✕</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+          <div class="special-day-add">
+            <div class="special-day-add-title">Kişisel Özel Gün Ekle</div>
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <input type="text" id="sd-name" class="modal-input" placeholder="Gün adı..." maxlength="50" style="flex:1" />
+              <input type="text" id="sd-emoji" class="modal-input" placeholder="🎂" maxlength="4" style="width:52px;text-align:center;font-size:1.2rem" />
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+              <input type="date" id="sd-date" class="modal-input" style="flex:1" />
+              <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;white-space:nowrap;cursor:pointer">
+                <input type="checkbox" id="sd-yearly" checked /> Her yıl tekrarla
+              </label>
+            </div>
+            <button class="btn btn-save" id="sd-add-btn" style="width:100%">Ekle</button>
+          </div>
+          <div id="sd-personal-list"></div>
+          <div class="special-days-divider"></div>
+          <div class="special-day-add-title">🇹🇷 Resmi &amp; Dini Tatiller</div>
+          <div id="sd-national-list"></div>
+        </div>
+      </div>
     </div>
 
     <div class="bottom-actions" id="bottom-actions">
@@ -875,7 +906,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=36"></script>
-  <script src="app.js?v=36"></script>
+  <script src="firebase-config.js?v=37"></script>
+  <script src="app.js?v=37"></script>
 </body>
 </html>

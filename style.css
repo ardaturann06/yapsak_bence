@@ -1511,6 +1511,33 @@ select.modal-input {
 .cal-task-done .cal-task-text { text-decoration: line-through; color: var(--text-muted); }
 .cal-recur-badge { font-size: 0.7rem; color: var(--accent); font-weight: 700; flex-shrink: 0; }
 
+/* Calendar — special days */
+.cal-special-btn { font-size: 1rem; }
+.cal-cell-special { border-color: #f59e0b33; }
+.cal-special-emoji { font-size: 0.7rem; line-height: 1; }
+.cal-special-item { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.cal-special-item:last-child { border-bottom: none; }
+.cal-special-icon { font-size: 1.1rem; flex-shrink: 0; }
+.cal-special-name { font-size: 0.85rem; flex: 1; font-weight: 500; }
+.cal-special-header { font-size: 0.82rem; font-weight: 600; padding: 8px 14px 4px; color: #f59e0b; border-bottom: 1px solid var(--border); }
+
+/* Special days modal */
+.special-day-add { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px; }
+.special-day-add-title { font-size: 0.82rem; font-weight: 700; margin-bottom: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.special-days-divider { border: none; border-top: 1px solid var(--border); }
+.sd-personal-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.sd-personal-item:last-child { border-bottom: none; }
+.sd-personal-emoji { font-size: 1.2rem; }
+.sd-personal-info { flex: 1; min-width: 0; }
+.sd-personal-name { font-size: 0.86rem; font-weight: 600; }
+.sd-personal-meta { font-size: 0.74rem; color: var(--text-muted); }
+.sd-national-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.sd-national-item:last-child { border-bottom: none; }
+.sd-national-emoji { font-size: 1.1rem; }
+.sd-national-info { flex: 1; }
+.sd-national-name { font-size: 0.84rem; font-weight: 500; }
+.sd-national-date { font-size: 0.74rem; color: var(--text-muted); }
+
 /* ========== DAILY QUOTE ========== */
 .daily-quote {
   display: flex; align-items: center; gap: 10px;
