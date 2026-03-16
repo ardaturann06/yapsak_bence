@@ -330,6 +330,7 @@ let settings = {
   sortOrder:       'manual',
   defaultPriority: 'normal',
   defaultCategory: 'genel',
+  defaultView:     'list',
   hideDone:        false,
   accentColor:     '#7c6dfa',
   language:        'tr',
@@ -463,9 +464,10 @@ function openSettings() {
   setToggle('stg-sound',    settings.sound);
   setToggle('stg-confetti', settings.confetti);
   setToggle('stg-hidedone', settings.hideDone);
-  $('stg-sort').value      = settings.sortOrder;
-  $('stg-priority').value  = settings.defaultPriority;
-  $('stg-category').value  = settings.defaultCategory;
+  $('stg-sort').value          = settings.sortOrder;
+  $('stg-priority').value      = settings.defaultPriority;
+  $('stg-category').value      = settings.defaultCategory;
+  $('stg-default-view').value  = settings.defaultView || 'list';
   setToggle('stg-compact',  settings.compactMode);
   $('stg-language').value  = settings.language || 'tr';
   $('stg-pomo-work').value  = settings.pomoWork  || 25;
@@ -2623,7 +2625,7 @@ function showApp() {
   subscribeUserDoc();
   checkAdmin();
   checkAnnouncement();
-  render();
+  switchView(settings.defaultView || 'list');
 }
 
 function showAuth() {
@@ -3186,9 +3188,9 @@ $('settings-drawer').addEventListener('click', e => { if (e.target === $('settin
     saveSettings();
   });
 });
-['stg-sort','stg-priority','stg-category','stg-language'].forEach(id => {
+['stg-sort','stg-priority','stg-category','stg-language','stg-default-view'].forEach(id => {
   $(id).addEventListener('change', e => {
-    const key = { 'stg-sort': 'sortOrder', 'stg-priority': 'defaultPriority', 'stg-category': 'defaultCategory', 'stg-language': 'language' }[id];
+    const key = { 'stg-sort': 'sortOrder', 'stg-priority': 'defaultPriority', 'stg-category': 'defaultCategory', 'stg-language': 'language', 'stg-default-view': 'defaultView' }[id];
     settings[key] = e.target.value;
     saveSettings();
   });
