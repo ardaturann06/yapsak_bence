@@ -3313,7 +3313,7 @@ $('settings-drawer').addEventListener('click', e => { if (e.target === $('settin
 $('lp-bg-btn').addEventListener('click', toggleLpBgPicker);
 $('lp-bg-handle').addEventListener('click', closeLpBgPicker);
 $('lp-bg-backdrop').addEventListener('click', closeLpBgPicker);
-$('lp-bg-image-btn').addEventListener('click', () => $('lp-bg-image').click());
+// lp-bg-image-btn is a <label for="lp-bg-image"> — no click handler needed
 $('lp-bg-image').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
