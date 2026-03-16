@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link rel="stylesheet" href="style.css?v=26" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -289,10 +289,59 @@
     </header>
     <form class="add-form lp-add-form" id="lp-add-form">
       <div class="input-row">
-        <input type="text" id="lp-input" placeholder="Göreve ekle..." maxlength="200" autocomplete="off" />
+        <input type="text" id="lp-input" placeholder="Görev ekle..." maxlength="200" autocomplete="off" />
         <button type="submit" class="btn btn-add">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
+      </div>
+      <div class="options-row">
+        <select id="lp-priority" class="select">
+          <option value="normal">Normal</option>
+          <option value="high">🔴 Yüksek</option>
+          <option value="low">🟢 Düşük</option>
+        </select>
+        <input type="date" id="lp-deadline" class="select" title="Son tarih" />
+      </div>
+      <button type="button" class="form-details-toggle" id="lp-details-toggle">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        Detaylar ekle
+      </button>
+      <div class="form-details" id="lp-details">
+        <textarea id="lp-notes" placeholder="Not veya açıklama..." rows="2"></textarea>
+        <div class="form-details-row">
+          <div class="form-detail-field">
+            <label>Hatırlatıcı</label>
+            <input type="datetime-local" id="lp-reminder" class="select" />
+          </div>
+          <div class="form-detail-field">
+            <label>Durum</label>
+            <select id="lp-status" class="select">
+              <option value="todo">Yapılacak</option>
+              <option value="inprogress">Devam Ediyor</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-details-row">
+          <div class="form-detail-field">
+            <label>Tekrar</label>
+            <select id="lp-repeat" class="select">
+              <option value="none">Tekrar yok</option>
+              <option value="daily">Her gün</option>
+              <option value="weekly">Her hafta</option>
+              <option value="monthly">Her ay</option>
+            </select>
+          </div>
+          <div class="form-detail-field" id="lp-repeat-end-field" style="display:none">
+            <label>Bitiş Tarihi</label>
+            <input type="date" id="lp-repeat-end" class="select" />
+          </div>
+        </div>
+        <div class="form-detail-field">
+          <label>Etiketler</label>
+          <div class="form-tags-wrap" id="lp-tags-wrap">
+            <input id="lp-tag-input" placeholder="Etiket yaz + Enter" maxlength="30" />
+          </div>
+        </div>
       </div>
     </form>
     <div class="filters" id="lp-filters">
@@ -690,7 +739,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=25"></script>
-  <script src="app.js?v=25"></script>
+  <script src="firebase-config.js?v=26"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>

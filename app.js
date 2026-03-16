@@ -210,6 +210,7 @@ function openListPage(id) {
     b.classList.toggle('active', b.dataset.lpfilter === 'all')
   );
   $('list-page-screen').classList.add('open');
+  resetLpForm();
   closeMenu();
   renderListChips();
   renderListPage();
@@ -2570,15 +2571,78 @@ if ('Notification' in window && Notification.permission === 'granted') {
 
 // ---- List Page Screen Event Listeners ----
 $('lp-back').addEventListener('click', closeListPage);
-$('lp-add-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const input = $('lp-input');
-  const text  = input.value.trim();
-  if (!text || !selectedList) return;
-  await addTask(text, settings.defaultPriority, selectedList, null);
-  input.value = '';
-  input.focus();
+// LP form state
+let lpFormTags = [];
+
+function renderLpFormTags() {
+  const wrap = $('lp-tags-wrap');
+  const input = $('lp-tag-input');
+  wrap.querySelectorAll('.form-tag-chip').forEach(c => c.remove());
+  lpFormTags.forEach(tag => {
+    const chip = document.createElement('span');
+    chip.className = 'form-tag-chip';
+    chip.textContent = tag;
+    chip.addEventListener('click', () => { lpFormTags = lpFormTags.filter(t => t !== tag); renderLpFormTags(); });
+    wrap.insertBefore(chip, input);
+  });
+}
+
+function resetLpForm() {
+  $('lp-input').value = '';
+  $('lp-priority').value = settings.defaultPriority || 'normal';
+  $('lp-deadline').value = '';
+  $('lp-notes').value = '';
+  $('lp-reminder').value = '';
+  $('lp-repeat').value = 'none';
+  $('lp-repeat-end').value = '';
+  $('lp-repeat-end-field').style.display = 'none';
+  $('lp-status').value = 'todo';
+  lpFormTags = [];
+  renderLpFormTags();
+  $('lp-details').classList.remove('open');
+  $('lp-details-toggle').classList.remove('open');
+}
+
+$('lp-details-toggle').addEventListener('click', () => {
+  const open = $('lp-details').classList.toggle('open');
+  $('lp-details-toggle').classList.toggle('open', open);
 });
+
+$('lp-repeat').addEventListener('change', () => {
+  $('lp-repeat-end-field').style.display = $('lp-repeat').value !== 'none' ? '' : 'none';
+});
+
+$('lp-tag-input').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ',') return;
+  e.preventDefault();
+  const val = $('lp-tag-input').value.trim();
+  if (val && !lpFormTags.includes(val)) { lpFormTags.push(val); renderLpFormTags(); }
+  $('lp-tag-input').value = '';
+});
+
+$('lp-add-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('lp-input').value.trim();
+  if (!text) {
+    $('lp-input').classList.add('shake');
+    setTimeout(() => $('lp-input').classList.remove('shake'), 300);
+    $('lp-input').focus();
+    return;
+  }
+  const repeat = $('lp-repeat').value || 'none';
+  const extras = {
+    notes:          $('lp-notes').value,
+    reminder:       $('lp-reminder').value || null,
+    reminderRepeat: repeat,
+    reminderEnd:    (repeat !== 'none' ? $('lp-repeat-end').value : null) || null,
+    status:         $('lp-status').value,
+    tags:           [...lpFormTags],
+  };
+  addTask(text, $('lp-priority').value, selectedList, $('lp-deadline').value, extras);
+  resetLpForm();
+  $('lp-input').focus();
+});
+
 $('lp-filters').querySelectorAll('[data-lpfilter]').forEach(btn => {
   btn.addEventListener('click', () => {
     lpFilter = btn.dataset.lpfilter;
