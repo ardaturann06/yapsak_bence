@@ -408,6 +408,116 @@ function shadeColor(hex, amt) {
   return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
 }
 
+// ---- Background ----
+const BG_KEY = 'yapsak-bence-bg';
+
+const BG_COLORS = [
+  { value: 'default',   label: 'Varsayılan', style: 'var(--bg)' },
+  { value: '#0f172a',   label: 'Gece Mavisi',  style: '#0f172a' },
+  { value: '#1a1a2e',   label: 'Koyu Mor',     style: '#1a1a2e' },
+  { value: '#0d1117',   label: 'Siyah',        style: '#0d1117' },
+  { value: '#1e1b4b',   label: 'Derin Mor',    style: '#1e1b4b' },
+  { value: '#052e16',   label: 'Koyu Yeşil',   style: '#052e16' },
+  { value: '#450a0a',   label: 'Koyu Kırmızı', style: '#450a0a' },
+  { value: '#1c1917',   label: 'Kahve',        style: '#1c1917' },
+  { value: '#0c1a2e',   label: 'Okyanus',      style: '#0c1a2e' },
+];
+
+const BG_GRADIENTS = [
+  { value: 'linear-gradient(135deg,#1a1a2e,#16213e)',        label: 'Gece' },
+  { value: 'linear-gradient(135deg,#0f2027,#203a43,#2c5364)',label: 'Okyanus' },
+  { value: 'linear-gradient(135deg,#1a0533,#12032a)',        label: 'Galaksi' },
+  { value: 'linear-gradient(135deg,#0d1b2a,#1b4332)',        label: 'Orman' },
+  { value: 'linear-gradient(135deg,#2d1b69,#11998e)',        label: 'Aurora' },
+  { value: 'linear-gradient(135deg,#232526,#414345)',        label: 'Gri' },
+  { value: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)',label: 'Uzay' },
+  { value: 'linear-gradient(135deg,#1a1a2e,#c94b4b)',        label: 'Ateş' },
+];
+
+let bgData = { type: 'default', value: '' }; // type: default|color|gradient|image
+
+function loadBackground() {
+  try { bgData = JSON.parse(localStorage.getItem(BG_KEY)) || bgData; } catch {}
+  applyBackground();
+}
+
+function saveBackground() {
+  localStorage.setItem(BG_KEY, JSON.stringify(bgData));
+  applyBackground();
+  updateBgSwatchActive();
+}
+
+function applyBackground() {
+  const appEl = document.querySelector('.app');
+  if (!appEl) return;
+  if (bgData.type === 'default' || !bgData.value) {
+    document.body.style.background = '';
+    document.body.style.backgroundImage = '';
+    appEl.classList.remove('custom-bg');
+  } else if (bgData.type === 'image') {
+    document.body.style.background = '#000';
+    document.body.style.backgroundImage = `url(${bgData.value})`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
+    document.body.style.backgroundAttachment = 'fixed';
+    appEl.classList.add('custom-bg');
+  } else {
+    document.body.style.background = bgData.value;
+    document.body.style.backgroundImage = '';
+    appEl.classList.add('custom-bg');
+  }
+}
+
+function renderBgSwatches() {
+  const colorEl = $('bg-color-swatches');
+  const gradEl  = $('bg-gradient-swatches');
+  if (!colorEl) return;
+
+  colorEl.innerHTML = BG_COLORS.map(c => {
+    const bg = c.value === 'default' ? 'var(--surface2)' : c.style;
+    return `<button class="bg-swatch" data-bg-type="${c.value === 'default' ? 'default' : 'color'}" data-bg-value="${c.value === 'default' ? '' : c.value}" style="background:${bg}" title="${c.label}"></button>`;
+  }).join('');
+
+  gradEl.innerHTML = BG_GRADIENTS.map(g =>
+    `<button class="bg-swatch" data-bg-type="gradient" data-bg-value="${g.value}" style="background:${g.value}" title="${g.label}"></button>`
+  ).join('');
+
+  colorEl.querySelectorAll('.bg-swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      bgData = { type: btn.dataset.bgType, value: btn.dataset.bgValue };
+      saveBackground();
+    });
+  });
+  gradEl.querySelectorAll('.bg-swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      bgData = { type: 'gradient', value: btn.dataset.bgValue };
+      saveBackground();
+    });
+  });
+
+  updateBgSwatchActive();
+}
+
+function updateBgSwatchActive() {
+  document.querySelectorAll('.bg-swatch').forEach(btn => {
+    const match = bgData.type === 'default'
+      ? btn.dataset.bgType === 'default'
+      : btn.dataset.bgValue === bgData.value;
+    btn.classList.toggle('active', match);
+  });
+  // Preview strip for image
+  const preview = $('stg-bg-preview');
+  if (preview) {
+    if (bgData.type === 'image' && bgData.value) {
+      preview.classList.add('show');
+      preview.innerHTML = `<img src="${bgData.value}" alt="arkaplan" />`;
+    } else {
+      preview.classList.remove('show');
+      preview.innerHTML = '';
+    }
+  }
+}
+
 function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
@@ -461,6 +571,7 @@ function applySettings() {
 function openSettings() {
   const drawer = $('settings-drawer');
   drawer.classList.add('open');
+  renderBgSwatches();
   setToggle('stg-sound',    settings.sound);
   setToggle('stg-confetti', settings.confetti);
   setToggle('stg-hidedone', settings.hideDone);
@@ -2615,6 +2726,7 @@ function showApp() {
   }
   if (currentUser && db) $('share-btn').style.display = '';
   saveProfileFirestore();
+  loadBackground();
   loadPersonalDays();
   loadXP();
   loadStreak();
@@ -2640,6 +2752,7 @@ function enterGuestMode() {
   checkMissedReminders();
   hideLoading();
   authOverlay.classList.add('hidden');
+  loadBackground();
   loadPersonalDays();
   loadXP();
   loadStreak();
@@ -3180,6 +3293,32 @@ $('cal-next').addEventListener('click', () => {
 $('settings-btn').addEventListener('click', openSettings);
 $('settings-close').addEventListener('click', closeSettings);
 $('settings-drawer').addEventListener('click', e => { if (e.target === $('settings-drawer')) closeSettings(); });
+
+// Background listeners
+$('stg-bg-image-btn').addEventListener('click', () => $('stg-bg-image').click());
+$('stg-bg-image').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('Resim 5 MB\'dan küçük olmalı.'); return; }
+  const canvas = document.createElement('canvas');
+  const img = new Image();
+  img.onload = () => {
+    const max = 1920;
+    let w = img.width, h = img.height;
+    if (w > max) { h = Math.round(h * max / w); w = max; }
+    if (h > max) { w = Math.round(w * max / h); h = max; }
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    bgData = { type: 'image', value: canvas.toDataURL('image/jpeg', 0.85) };
+    saveBackground();
+  };
+  img.src = URL.createObjectURL(file);
+  e.target.value = '';
+});
+$('stg-bg-reset').addEventListener('click', () => {
+  bgData = { type: 'default', value: '' };
+  saveBackground();
+});
 
 ['stg-sound','stg-confetti','stg-hidedone','stg-compact'].forEach(id => {
   $(id).addEventListener('change', e => {
