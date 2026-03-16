@@ -2066,9 +2066,10 @@ function hideLoading() {
 }
 
 // ---- Admin Panel ----
-let isAdmin    = false;
-let adminUsers = [];
-let adminTab   = 'users';
+let isAdmin       = false;
+let adminUsers    = [];
+let adminTab      = 'users';
+let adminDetailUid = null;
 
 async function checkAdmin() {
   if (!currentUser || !db) return;
@@ -2077,19 +2078,26 @@ async function checkAdmin() {
     isAdmin = doc.exists;
     $('admin-btn').style.display = 'none';
     $('sidebar-admin-btn').style.display = isAdmin ? '' : 'none';
-    if (isAdmin) checkAnnouncement();
   } catch {}
 }
 
 async function checkAnnouncement() {
   if (!db) return;
   try {
-    const snap = await db.collection('announcements').orderBy('createdAt', 'desc').limit(1).get();
+    const now = new Date();
+    const snap = await db.collection('announcements').orderBy('createdAt', 'desc').limit(10).get();
     if (snap.empty) return;
-    const ann = snap.docs[0].data();
-    const seenKey = 'ann-seen-' + snap.docs[0].id;
-    if (sessionStorage.getItem(seenKey)) return;
-    showAnnBanner(ann.text, snap.docs[0].id, seenKey);
+    for (const doc of snap.docs) {
+      const ann = doc.data();
+      if (ann.expiresAt) {
+        const expiry = ann.expiresAt?.toDate ? ann.expiresAt.toDate() : new Date(ann.expiresAt);
+        if (expiry < now) continue;
+      }
+      const seenKey = 'ann-seen-' + doc.id;
+      if (sessionStorage.getItem(seenKey)) continue;
+      showAnnBanner(ann.text, doc.id, seenKey);
+      break;
+    }
   } catch {}
 }
 
@@ -2121,7 +2129,9 @@ async function loadAdminData() {
     renderAdminStats();
     renderAdminUsers();
     renderAdminLeaderboard();
-    loadAdminAnnouncement();
+    renderAdminStatsTab();
+    renderAdminAnnList();
+    loadAppSettings();
   } catch (e) {
     $('admin-user-list').innerHTML = `<p style="padding:16px;color:var(--text-muted)">Veri yüklenemedi. Firestore kurallarını kontrol et.</p>`;
   }
@@ -2160,40 +2170,249 @@ function adminUserCard(u, prefix = '') {
   const xp     = u.xp || 0;
   const level  = levelFromXP(xp);
   const streak = u.streak?.streak || 0;
+  const frozen = u.frozen ? ' 🔒' : '';
   const photo  = u.photoURL ? `<img src="${u.photoURL}" class="admin-user-avatar" referrerpolicy="no-referrer" />` : `<div class="admin-user-avatar admin-user-avatar-placeholder">${name[0]?.toUpperCase()}</div>`;
-  return `<div class="admin-user-card">
+  return `<div class="admin-user-card" data-uid="${u.uid}">
     ${prefix ? `<span class="admin-medal">${prefix}</span>` : ''}
     ${photo}
     <div class="admin-user-info">
-      <div class="admin-user-name">${name}</div>
+      <div class="admin-user-name">${name}${frozen}</div>
       <div class="admin-user-meta">Lv.${level} · ${xp} XP · 🔥${streak} seri</div>
     </div>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--text-muted);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
   </div>`;
 }
 
-async function loadAdminAnnouncement() {
+async function renderAdminAnnList() {
+  const el = $('admin-ann-list');
+  if (!el) return;
   try {
-    const snap = await db.collection('announcements').orderBy('createdAt', 'desc').limit(1).get();
-    const el = $('admin-ann-current');
-    if (snap.empty) { el.textContent = 'Aktif duyuru yok.'; return; }
-    const d = snap.docs[0].data();
-    el.innerHTML = `<b>Mevcut duyuru:</b> ${d.text} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(d.createdAt?.toDate ? d.createdAt.toDate() : d.createdAt).toLocaleDateString('tr')})</span>`;
-  } catch {}
+    const snap = await db.collection('announcements').orderBy('createdAt', 'desc').limit(20).get();
+    if (snap.empty) { el.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Henüz duyuru yok.</p>'; return; }
+    el.innerHTML = snap.docs.map(doc => {
+      const d = doc.data();
+      const date = d.createdAt ? new Date(d.createdAt?.toDate ? d.createdAt.toDate() : d.createdAt).toLocaleDateString('tr') : '—';
+      const expiry = d.expiresAt ? ` · Son: ${new Date(d.expiresAt?.toDate ? d.expiresAt.toDate() : d.expiresAt).toLocaleDateString('tr')}` : '';
+      return `<div class="admin-ann-item">
+        <div style="flex:1">
+          <div class="admin-ann-item-text">${d.text}</div>
+          <div class="admin-ann-item-meta">${date}${expiry}</div>
+        </div>
+        <button class="icon-btn admin-ann-del" data-id="${doc.id}" title="Sil">🗑</button>
+      </div>`;
+    }).join('');
+  } catch { el.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Yüklenemedi.</p>'; }
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Duyuru silinsin mi?')) return;
+  try {
+    await db.collection('announcements').doc(id).delete();
+    renderAdminAnnList();
+  } catch (e) { alert('Hata: ' + e.message); }
 }
 
 async function sendAnnouncement() {
   const text = $('admin-ann-input').value.trim();
   if (!text) return;
+  const expiryVal = $('admin-ann-expiry').value;
   try {
-    await db.collection('announcements').add({
-      text,
-      createdAt: new Date(),
-      createdBy: currentUser.uid,
-    });
+    const data = { text, createdAt: new Date(), createdBy: currentUser.uid };
+    if (expiryVal) data.expiresAt = new Date(expiryVal);
+    await db.collection('announcements').add(data);
     $('admin-ann-input').value = '';
-    loadAdminAnnouncement();
+    $('admin-ann-expiry').value = '';
+    renderAdminAnnList();
     alert('Duyuru gönderildi!');
   } catch (e) { alert('Hata: ' + e.message); }
+}
+
+function renderAdminStatsTab() {
+  // Level distribution
+  const levelCounts = {};
+  adminUsers.forEach(u => {
+    const lv = levelFromXP(u.xp || 0);
+    levelCounts[lv] = (levelCounts[lv] || 0) + 1;
+  });
+  const maxLv = Math.max(...Object.values(levelCounts), 1);
+  const lvEl = $('admin-level-chart');
+  if (lvEl) lvEl.innerHTML = Object.keys(levelCounts).length
+    ? Object.entries(levelCounts).sort((a, b) => +a[0] - +b[0]).map(([lv, cnt]) =>
+        `<div class="admin-chart-row">
+          <span class="admin-chart-label">Lv.${lv}</span>
+          <div class="admin-chart-bar-wrap"><div class="admin-chart-bar" style="width:${Math.round(cnt/maxLv*100)}%"></div></div>
+          <span class="admin-chart-val">${cnt}</span>
+        </div>`).join('')
+    : '<p style="color:var(--text-muted);font-size:0.85rem">Veri yok.</p>';
+
+  // Streak distribution
+  const buckets = { '0': 0, '1-3': 0, '4-7': 0, '8-30': 0, '30+': 0 };
+  adminUsers.forEach(u => {
+    const s = u.streak?.streak || 0;
+    if (s === 0) buckets['0']++;
+    else if (s <= 3) buckets['1-3']++;
+    else if (s <= 7) buckets['4-7']++;
+    else if (s <= 30) buckets['8-30']++;
+    else buckets['30+']++;
+  });
+  const maxSt = Math.max(...Object.values(buckets), 1);
+  const stEl = $('admin-streak-chart');
+  if (stEl) stEl.innerHTML = Object.entries(buckets).map(([label, cnt]) =>
+    `<div class="admin-chart-row">
+      <span class="admin-chart-label">🔥${label}</span>
+      <div class="admin-chart-bar-wrap"><div class="admin-chart-bar" style="width:${Math.round(cnt/maxSt*100)}%"></div></div>
+      <span class="admin-chart-val">${cnt}</span>
+    </div>`).join('');
+}
+
+async function loadAppSettings() {
+  try {
+    const doc = await db.collection('appSettings').doc('global').get();
+    if (doc.exists) {
+      const d = doc.data();
+      const tog = $('admin-maintenance-toggle');
+      const mot = $('admin-motivation-input');
+      if (tog) tog.checked = d.maintenanceMode || false;
+      if (mot) mot.value = d.motivationMessage || '';
+    }
+  } catch {}
+}
+
+async function toggleMaintenanceMode() {
+  const checked = $('admin-maintenance-toggle').checked;
+  try {
+    await db.collection('appSettings').doc('global').set({ maintenanceMode: checked }, { merge: true });
+  } catch (e) {
+    $('admin-maintenance-toggle').checked = !checked;
+    alert('Hata: ' + e.message);
+  }
+}
+
+async function saveMotivationMessage() {
+  const msg = $('admin-motivation-input').value.trim();
+  try {
+    await db.collection('appSettings').doc('global').set({ motivationMessage: msg }, { merge: true });
+    alert('Motivasyon mesajı kaydedildi!');
+  } catch (e) { alert('Hata: ' + e.message); }
+}
+
+async function openUserDetail(uid) {
+  const u = adminUsers.find(u => u.uid === uid);
+  if (!u) return;
+  adminDetailUid = uid;
+  const name = u.displayName || u.email || uid.slice(0, 8);
+  $('admin-detail-title').textContent = name;
+
+  let userIsAdmin = false;
+  try {
+    const doc = await db.collection('admins').doc(uid).get();
+    userIsAdmin = doc.exists;
+  } catch {}
+
+  const xp     = u.xp || 0;
+  const level  = levelFromXP(xp);
+  const streak = u.streak?.streak || 0;
+  const frozen = u.frozen || false;
+  const photo  = u.photoURL
+    ? `<img src="${u.photoURL}" class="admin-user-avatar-lg" referrerpolicy="no-referrer" />`
+    : `<div class="admin-user-avatar-lg admin-user-avatar-placeholder">${name[0]?.toUpperCase()}</div>`;
+
+  $('admin-detail-body').innerHTML = `
+    <div class="admin-detail-profile">
+      ${photo}
+      <div>
+        <div class="admin-detail-name">${name}</div>
+        ${u.email ? `<div class="admin-detail-email">${u.email}</div>` : ''}
+        <div class="admin-detail-uid">${uid}</div>
+      </div>
+    </div>
+    <div class="admin-detail-stats">
+      <div class="admin-detail-stat"><span class="admin-stat-val">${level}</span><span class="admin-stat-lbl">Seviye</span></div>
+      <div class="admin-detail-stat"><span class="admin-stat-val">${xp.toLocaleString('tr')}</span><span class="admin-stat-lbl">XP</span></div>
+      <div class="admin-detail-stat"><span class="admin-stat-val">🔥${streak}</span><span class="admin-stat-lbl">Seri</span></div>
+      <div class="admin-detail-stat"><span class="admin-stat-val">${(u.lists||[]).length}</span><span class="admin-stat-lbl">Liste</span></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${userIsAdmin ? '<span class="admin-detail-badge">⭐ Yönetici</span>' : ''}
+      ${frozen ? '<span class="admin-detail-badge frozen">🔒 Dondurulmuş</span>' : ''}
+    </div>`;
+
+  const adminBtn  = $('admin-detail-admin-btn');
+  const freezeBtn = $('admin-detail-freeze-btn');
+  adminBtn.textContent = userIsAdmin ? '★ Admin Kaldır' : '★ Admin Yap';
+  adminBtn.dataset.isAdmin = userIsAdmin ? 'true' : 'false';
+  freezeBtn.textContent = frozen ? '🔓 Aktifleştir' : '🔒 Dondur';
+  freezeBtn.dataset.frozen = frozen ? 'true' : 'false';
+  freezeBtn.classList.toggle('active', frozen);
+
+  $('admin-user-detail').classList.add('open');
+}
+
+function closeUserDetail() {
+  $('admin-user-detail').classList.remove('open');
+  adminDetailUid = null;
+}
+
+async function toggleAdminRole() {
+  if (!adminDetailUid) return;
+  const btn = $('admin-detail-admin-btn');
+  const isCurrentlyAdmin = btn.dataset.isAdmin === 'true';
+  try {
+    if (isCurrentlyAdmin) {
+      await db.collection('admins').doc(adminDetailUid).delete();
+    } else {
+      await db.collection('admins').doc(adminDetailUid).set({ grantedBy: currentUser.uid, grantedAt: new Date() });
+    }
+    alert(isCurrentlyAdmin ? 'Admin yetkisi kaldırıldı.' : 'Admin yetkisi verildi.');
+    openUserDetail(adminDetailUid);
+  } catch (e) { alert('Hata: ' + e.message); }
+}
+
+async function toggleFreezeUser() {
+  if (!adminDetailUid) return;
+  const btn = $('admin-detail-freeze-btn');
+  const isFrozen = btn.dataset.frozen === 'true';
+  try {
+    await db.collection('users').doc(adminDetailUid).set({ frozen: !isFrozen }, { merge: true });
+    const u = adminUsers.find(u => u.uid === adminDetailUid);
+    if (u) u.frozen = !isFrozen;
+    openUserDetail(adminDetailUid);
+  } catch (e) { alert('Hata: ' + e.message); }
+}
+
+function exportUsersCSV() {
+  const headers = ['UID', 'Email', 'İsim', 'XP', 'Seviye', 'Seri', 'Liste Sayısı', 'Dondurulmuş'];
+  const rows = adminUsers.map(u => [
+    u.uid, u.email || '', u.displayName || '', u.xp || 0,
+    levelFromXP(u.xp || 0), u.streak?.streak || 0,
+    (u.lists || []).length, u.frozen ? 'Evet' : 'Hayır',
+  ]);
+  downloadCSV('kullanicilar.csv', headers, rows);
+}
+
+function exportStatsCSV() {
+  const today = new Date().toDateString();
+  const activeToday = adminUsers.filter(u => u.streak?.lastDate === today).length;
+  const totalXP = adminUsers.reduce((s, u) => s + (u.xp || 0), 0);
+  const headers = ['Metrik', 'Değer'];
+  const rows = [
+    ['Toplam Kullanıcı', adminUsers.length],
+    ['Bugün Aktif', activeToday],
+    ['Toplam XP', totalXP],
+    ['Ortalama XP', adminUsers.length ? Math.round(totalXP / adminUsers.length) : 0],
+    ['Export Tarihi', new Date().toLocaleString('tr')],
+  ];
+  downloadCSV('istatistikler.csv', headers, rows);
+}
+
+function downloadCSV(filename, headers, rows) {
+  const BOM = '\uFEFF';
+  const csv = BOM + [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function showApp() {
@@ -2212,6 +2431,7 @@ function showApp() {
   renderListOptions();
   subscribeUserDoc();
   checkAdmin();
+  checkAnnouncement();
   render();
 }
 
@@ -2931,12 +3151,31 @@ $('admin-close').addEventListener('click', closeAdminPanel);
 $('admin-ann-send').addEventListener('click', sendAnnouncement);
 $('admin-search').addEventListener('input', e => renderAdminUsers(e.target.value));
 $('admin-ann-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnnouncement(); } });
+$('admin-detail-back').addEventListener('click', closeUserDetail);
+$('admin-detail-admin-btn').addEventListener('click', toggleAdminRole);
+$('admin-detail-freeze-btn').addEventListener('click', toggleFreezeUser);
+$('admin-export-users').addEventListener('click', exportUsersCSV);
+$('admin-export-stats').addEventListener('click', exportStatsCSV);
+$('admin-motivation-save').addEventListener('click', saveMotivationMessage);
+$('admin-maintenance-toggle').addEventListener('change', toggleMaintenanceMode);
+$('admin-user-list').addEventListener('click', e => {
+  const card = e.target.closest('.admin-user-card');
+  if (card) openUserDetail(card.dataset.uid);
+});
+$('admin-leaderboard-list').addEventListener('click', e => {
+  const card = e.target.closest('.admin-user-card');
+  if (card) openUserDetail(card.dataset.uid);
+});
+$('admin-ann-list').addEventListener('click', e => {
+  const btn = e.target.closest('.admin-ann-del');
+  if (btn) deleteAnnouncement(btn.dataset.id);
+});
+const ALL_ADMIN_TABS = ['users', 'leaderboard', 'stats', 'announcements', 'appmgmt', 'export'];
 document.querySelectorAll('.admin-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     adminTab = btn.dataset.tab;
     document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b === btn));
-    $('admin-tab-users').classList.toggle('hidden', adminTab !== 'users');
-    $('admin-tab-leaderboard').classList.toggle('hidden', adminTab !== 'leaderboard');
+    ALL_ADMIN_TABS.forEach(t => $(`admin-tab-${t}`).classList.toggle('hidden', adminTab !== t));
   });
 });
 

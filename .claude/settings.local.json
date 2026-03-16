@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(git --version)",
-      "Bash(gh --version)"
+      "Bash(gh --version)",
+      "Bash(sed -i '' 's/v=15/v=16/g' index.html)",
+      "Bash(sed -i '' 's/yapsak-bence-v14/yapsak-bence-v15/' sw.js)"
     ]
   }
 }
