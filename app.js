@@ -197,13 +197,10 @@ function deleteList(id) {
 }
 
 function openMenu() {
-  $('sidebar-backdrop').classList.remove('hidden');
   $('sidebar-backdrop').classList.add('open');
 }
 function closeMenu() {
-  const bd = $('sidebar-backdrop');
-  bd.classList.remove('open');
-  setTimeout(() => bd.classList.add('hidden'), 260);
+  $('sidebar-backdrop').classList.remove('open');
 }
 
 function openCreateList() {
