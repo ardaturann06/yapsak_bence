@@ -943,7 +943,9 @@ function makeTaskItem(task) {
   const meta = document.createElement('div');
   meta.className = 'task-meta';
 
-  meta.appendChild(mkTag(task.category, 'tag-cat'));
+  const catList = allLists().find(l => l.id === task.category);
+  const catLabel = catList ? `${catList.emoji} ${catList.name}` : task.category;
+  meta.appendChild(mkTag(catLabel, 'tag-cat'));
   if (task.priority === 'high') meta.appendChild(mkTag('Yüksek', 'tag-pri-high'));
   if (task.priority === 'low')  meta.appendChild(mkTag('Düşük',  'tag-pri-low'));
   if (task.status === 'inprogress') meta.appendChild(mkTag('Devam', 'tag-inprogress'));
