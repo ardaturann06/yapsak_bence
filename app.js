@@ -2024,10 +2024,12 @@ function openSpecialDaysModal() {
   renderSpecialDaysList();
   renderNationalDaysList();
   $('special-days-overlay').classList.remove('hidden');
+  $('special-days-overlay').classList.add('open');
 }
 
 function closeSpecialDaysModal() {
   $('special-days-overlay').classList.add('hidden');
+  $('special-days-overlay').classList.remove('open');
 }
 
 function renderSpecialDaysList() {
