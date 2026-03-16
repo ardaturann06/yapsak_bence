@@ -2034,20 +2034,21 @@ function closeSpecialDaysModal() {
 
 function renderSpecialDaysList() {
   const el = $('sd-personal-list');
-  if (!personalDays.length) { el.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted)">Henüz kişisel özel gün eklemediniz.</p>'; return; }
-  el.innerHTML = personalDays.map(pd => {
+  if (!personalDays.length) {
+    el.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted)">Henüz kişisel özel gün eklemediniz.</p>';
+    return;
+  }
+  el.innerHTML = `<div class="sd-scroll-row">${personalDays.map(pd => {
     const dateLabel = pd.yearly
-      ? new Date(pd.date + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'long' }) + ' (her yıl)'
-      : new Date(pd.date + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'long', year: 'numeric' });
-    return `<div class="sd-personal-item">
+      ? new Date(pd.date + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'short' })
+      : new Date(pd.date + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `<div class="sd-personal-card">
+      <button class="sd-personal-del" data-del="${pd.id}">✕</button>
       <span class="sd-personal-emoji">${pd.emoji || '⭐'}</span>
-      <div class="sd-personal-info">
-        <div class="sd-personal-name">${pd.name}</div>
-        <div class="sd-personal-meta">${dateLabel}</div>
-      </div>
-      <button class="icon-btn" data-del="${pd.id}" title="Sil" style="color:var(--text-muted)">✕</button>
+      <span class="sd-personal-name">${pd.name}</span>
+      <span class="sd-personal-meta">${dateLabel}${pd.yearly ? ' · her yıl' : ''}</span>
     </div>`;
-  }).join('');
+  }).join('')}</div>`;
   el.querySelectorAll('[data-del]').forEach(btn => {
     btn.addEventListener('click', () => {
       personalDays = personalDays.filter(pd => pd.id !== btn.dataset.del);
@@ -2070,38 +2071,34 @@ const RELIGIOUS_HOLIDAY_RANGES = [
 function renderNationalDaysList() {
   const el = $('sd-national-list');
 
-  const nationalHtml = Object.entries(NATIONAL_HOLIDAYS)
+  const nationalCards = Object.entries(NATIONAL_HOLIDAYS)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([md, d]) => {
-      const dateStr = new Date(`2000-${md}T12:00:00`).toLocaleDateString('tr', { day: 'numeric', month: 'long' }) + ' — her yıl';
-      return `<div class="sd-national-item">
+      const dateStr = new Date(`2000-${md}T12:00:00`).toLocaleDateString('tr', { day: 'numeric', month: 'short' });
+      return `<div class="sd-national-card">
         <span class="sd-national-emoji">${d.emoji}</span>
-        <div class="sd-national-info">
-          <div class="sd-national-name">${d.name}</div>
-          <div class="sd-national-date">${dateStr}</div>
-        </div>
+        <span class="sd-national-name">${d.name}</span>
+        <span class="sd-national-date">${dateStr}</span>
       </div>`;
     }).join('');
 
-  const religiousHtml = RELIGIOUS_HOLIDAY_RANGES.map(r => {
+  const religiousCards = RELIGIOUS_HOLIDAY_RANGES.map(r => {
     const s = new Date(r.start + 'T12:00:00');
     const e = new Date(r.end   + 'T12:00:00');
+    const startStr = s.toLocaleDateString('tr', { day: 'numeric', month: 'short' });
+    const endStr   = e.toLocaleDateString('tr', { day: 'numeric', month: 'short' });
     const year = s.getFullYear();
-    const startStr = s.toLocaleDateString('tr', { day: 'numeric', month: 'long' });
-    const endStr   = e.toLocaleDateString('tr', { day: 'numeric', month: 'long' });
-    const dateStr  = startStr === endStr ? `${startStr} ${year}` : `${startStr} – ${endStr} ${year}`;
-    return `<div class="sd-national-item">
+    const dateStr = `${startStr}–${endStr} ${year}`;
+    return `<div class="sd-national-card">
       <span class="sd-national-emoji">${r.emoji}</span>
-      <div class="sd-national-info">
-        <div class="sd-national-name">${r.name}</div>
-        <div class="sd-national-date">${dateStr}</div>
-      </div>
+      <span class="sd-national-name">${r.name}</span>
+      <span class="sd-national-date">${dateStr}</span>
     </div>`;
   }).join('');
 
   el.innerHTML =
-    `<div class="sd-group-title">🇹🇷 Resmi Tatiller</div>${nationalHtml}` +
-    `<div class="sd-group-title" style="margin-top:12px">☪️ Dini Bayramlar</div>${religiousHtml}`;
+    `<div class="sd-group-title">🇹🇷 Resmi Tatiller</div><div class="sd-scroll-row">${nationalCards}</div>` +
+    `<div class="sd-group-title" style="margin-top:10px">☪️ Dini Bayramlar</div><div class="sd-scroll-row">${religiousCards}</div>`;
 }
 
 function addPersonalDay() {
