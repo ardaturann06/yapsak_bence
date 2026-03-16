@@ -99,9 +99,10 @@ const DEFAULT_LISTS = [
   { id: 'saglik',    name: 'Sağlık',    emoji: '❤️' },
 ];
 const EMOJI_PRESETS = ['📋','💼','👤','🛒','❤️','🎯','📚','🏋️','🎮','✈️','🏠','💡','🎵','🌿','🔧','⭐','🔔','📦','🎨','🚀'];
-let customLists  = [];
-let selectedList = null;
+let customLists     = [];
+let selectedList    = null;
 let createListEmoji = '📋';
+let editingListId   = null;
 
 function allLists() { return [...DEFAULT_LISTS, ...customLists]; }
 
@@ -136,22 +137,34 @@ function renderListChips() {
   const wrap = $('list-chips');
   if (!wrap) return;
   const all = allLists();
+  const isCustom = id => !!customLists.find(c => c.id === id);
   wrap.innerHTML =
     `<button class="list-chip${selectedList === null ? ' active' : ''}" data-list="">Tümü</button>` +
     all.map(l =>
       `<button class="list-chip${selectedList === l.id ? ' active' : ''}" data-list="${l.id}">` +
-      `${l.emoji} ${l.name}` +
-      (customLists.find(c => c.id === l.id) ? ` <span class="list-chip-del" data-del="${l.id}">×</span>` : '') +
+      `<span class="list-chip-label">${l.emoji} ${l.name}</span>` +
+      (isCustom(l.id)
+        ? `<span class="list-chip-actions">` +
+          `<span class="list-chip-edit" data-edit="${l.id}" title="Düzenle">✎</span>` +
+          `<span class="list-chip-del"  data-del="${l.id}"  title="Sil">×</span>` +
+          `</span>`
+        : '') +
       `</button>`
     ).join('') +
     `<button class="list-chip list-chip-add" id="list-chip-add">＋ Yeni</button>`;
 
   wrap.querySelectorAll('.list-chip[data-list]').forEach(btn => {
     btn.addEventListener('click', e => {
-      if (e.target.classList.contains('list-chip-del')) return;
+      if (e.target.closest('.list-chip-actions')) return;
       const id = btn.dataset.list || null;
       if (id) openListPage(id);
       else closeListPage();
+    });
+  });
+  wrap.querySelectorAll('.list-chip-edit').forEach(span => {
+    span.addEventListener('click', e => {
+      e.stopPropagation();
+      openEditList(span.dataset.edit);
     });
   });
   wrap.querySelectorAll('.list-chip-del').forEach(span => {
@@ -248,12 +261,14 @@ function closeMenu() {
   $('sidebar-backdrop').classList.remove('open');
 }
 
-function openCreateList() {
-  createListEmoji = '📋';
-  const overlay = $('create-list-overlay');
+function openListModal(name = '', emoji = '📋', editId = null) {
+  editingListId   = editId;
+  createListEmoji = emoji;
+  $('create-list-title').textContent   = editId ? 'Listeyi Düzenle' : 'Yeni Liste';
+  $('create-list-confirm').textContent = editId ? 'Kaydet' : 'Oluştur';
   const grid = $('create-list-emoji-grid');
   grid.innerHTML = EMOJI_PRESETS.map(e =>
-    `<button class="emoji-preset${e === createListEmoji ? ' selected' : ''}" data-emoji="${e}">${e}</button>`
+    `<button class="emoji-preset${e === emoji ? ' selected' : ''}" data-emoji="${e}">${e}</button>`
   ).join('');
   grid.querySelectorAll('.emoji-preset').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -262,14 +277,23 @@ function openCreateList() {
       $('create-list-preview').textContent = createListEmoji;
     });
   });
-  $('create-list-preview').textContent = createListEmoji;
-  $('new-list-name').value = '';
-  overlay.classList.remove('hidden');
+  $('create-list-preview').textContent = emoji;
+  $('new-list-name').value = name;
+  $('create-list-overlay').classList.remove('hidden');
   setTimeout(() => $('new-list-name').focus(), 50);
+}
+
+function openCreateList() { openListModal(); }
+
+function openEditList(id) {
+  const list = customLists.find(l => l.id === id);
+  if (!list) return;
+  openListModal(list.name, list.emoji, id);
 }
 
 function closeCreateList() {
   $('create-list-overlay').classList.add('hidden');
+  editingListId = null;
 }
 
 // ---- Settings ----
@@ -2663,7 +2687,19 @@ $('create-list-overlay').addEventListener('click', e => { if (e.target === $('cr
 $('create-list-confirm').addEventListener('click', () => {
   const name = $('new-list-name').value.trim();
   if (!name) { $('new-list-name').focus(); return; }
-  createList(name, createListEmoji);
+  if (editingListId) {
+    const list = customLists.find(l => l.id === editingListId);
+    if (list) { list.name = name; list.emoji = createListEmoji; }
+    saveLists();
+    renderListChips();
+    renderListOptions();
+    if (lpOpen && selectedList === editingListId) {
+      $('lp-emoji').textContent = createListEmoji;
+      $('lp-name').textContent  = name;
+    }
+  } else {
+    createList(name, createListEmoji);
+  }
   closeCreateList();
 });
 $('new-list-name').addEventListener('keydown', e => {

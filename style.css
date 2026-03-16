@@ -1705,9 +1705,12 @@ select.modal-input {
 .list-chip { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); border: none; background: transparent; color: var(--text-muted); font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: all 0.13s; width: 100%; text-align: left; position: relative; }
 .list-chip:hover { background: var(--surface2); color: var(--text); }
 .list-chip.active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 700; }
-.list-chip-del { margin-left: auto; font-size: 0.95rem; opacity: 0; line-height: 1; padding: 0 2px; }
-.list-chip:hover .list-chip-del { opacity: 0.5; }
-.list-chip-del:hover { opacity: 1 !important; }
+.list-chip-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-chip-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+.list-chip:hover .list-chip-actions { opacity: 1; }
+.list-chip-edit, .list-chip-del { font-size: 0.9rem; padding: 1px 4px; border-radius: 4px; line-height: 1; }
+.list-chip-edit:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.list-chip-del:hover  { background: color-mix(in srgb, var(--high)   20%, transparent); color: var(--high); }
 .list-chip-add { border: 1.5px dashed var(--accent); color: var(--accent); background: transparent; justify-content: center; margin-top: 8px; border-radius: var(--radius-sm); }
 .list-chip-add:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
