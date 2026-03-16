@@ -149,10 +149,9 @@ function renderListChips() {
   wrap.querySelectorAll('.list-chip[data-list]').forEach(btn => {
     btn.addEventListener('click', e => {
       if (e.target.classList.contains('list-chip-del')) return;
-      selectedList = btn.dataset.list || null;
-      closeMenu();
-      renderListChips();
-      render();
+      const id = btn.dataset.list || null;
+      if (id) openListPage(id);
+      else closeListPage();
     });
   });
   wrap.querySelectorAll('.list-chip-del').forEach(span => {
@@ -194,6 +193,38 @@ function deleteList(id) {
   renderListChips();
   renderListOptions();
   render();
+}
+
+function openListPage(id) {
+  const list = allLists().find(l => l.id === id);
+  if (!list) return;
+  selectedList = id;
+  $('list-page-emoji').textContent = list.emoji;
+  $('list-page-name').textContent  = list.name;
+  const hdr = $('list-page-header');
+  hdr.style.display = 'flex';
+  requestAnimationFrame(() => hdr.classList.add('open'));
+  const cs = $('category-select');
+  if (cs) cs.value = id;
+  closeMenu();
+  renderListChips();
+  render();
+}
+
+function closeListPage() {
+  selectedList = null;
+  const hdr = $('list-page-header');
+  hdr.classList.remove('open');
+  setTimeout(() => { hdr.style.display = 'none'; }, 260);
+  renderListChips();
+  render();
+}
+
+function updateListPageCount() {
+  const el = $('list-page-count');
+  if (!el || !selectedList) return;
+  const n = tasks.filter(t => t.category === selectedList).length;
+  el.textContent = `${n} görev`;
 }
 
 function openMenu() {
@@ -741,6 +772,7 @@ function updateStats() {
 // ---- Render ----
 function render() {
   updateStats();
+  updateListPageCount();
   if (view === 'list') renderList();
   else renderKanban();
 }
@@ -2522,6 +2554,9 @@ document.querySelectorAll('.accent-swatch').forEach(s => {
 if ('Notification' in window && Notification.permission === 'granted') {
   notifBtn.style.color = 'var(--low)';
 }
+
+// ---- List Page Event Listeners ----
+$('list-page-back').addEventListener('click', closeListPage);
 
 // ---- Sidebar (Lists) Event Listeners ----
 $('menu-btn').addEventListener('click', openMenu);

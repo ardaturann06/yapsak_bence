@@ -1679,6 +1679,13 @@ select.modal-input {
 .stats-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); }
 .stats-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
+/* ========== LIST PAGE HEADER ========== */
+.list-page-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--surface2); border-bottom: 1px solid var(--border); transform: translateY(-8px); opacity: 0; transition: transform 0.24s cubic-bezier(0.4,0,0.2,1), opacity 0.24s; }
+.list-page-header.open { transform: translateY(0); opacity: 1; }
+.list-page-emoji { font-size: 1.3rem; line-height: 1; }
+.list-page-name { font-size: 1rem; font-weight: 700; flex: 1; }
+.list-page-count { font-size: 0.75rem; color: var(--text-muted); background: var(--surface3); padding: 2px 8px; border-radius: 99px; }
+
 /* ========== LEFT SIDEBAR ========== */
 .sidebar-backdrop { position: fixed; inset: 0; z-index: 9400; background: rgba(0,0,0,.5); display: flex; justify-content: flex-start; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
 .sidebar-backdrop.open { opacity: 1; pointer-events: all; }
