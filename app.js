@@ -2058,29 +2058,50 @@ function renderSpecialDaysList() {
   });
 }
 
+const RELIGIOUS_HOLIDAY_RANGES = [
+  { name: 'Ramazan Bayramı', emoji: '🌙', start: '2025-03-30', end: '2025-04-01' },
+  { name: 'Kurban Bayramı',  emoji: '🌿', start: '2025-06-06', end: '2025-06-09' },
+  { name: 'Ramazan Bayramı', emoji: '🌙', start: '2026-03-19', end: '2026-03-21' },
+  { name: 'Kurban Bayramı',  emoji: '🌿', start: '2026-05-26', end: '2026-05-29' },
+  { name: 'Ramazan Bayramı', emoji: '🌙', start: '2027-03-08', end: '2027-03-10' },
+  { name: 'Kurban Bayramı',  emoji: '🌿', start: '2027-05-17', end: '2027-05-20' },
+];
+
 function renderNationalDaysList() {
   const el = $('sd-national-list');
-  const all = [
-    ...Object.entries(NATIONAL_HOLIDAYS).map(([md, d]) => ({ ...d, md, type: 'national' })),
-    ...Object.entries(RELIGIOUS_HOLIDAYS).map(([ds, d]) => ({ ...d, ds, type: 'religious' })),
-  ];
-  const sorted = all.sort((a, b) => {
-    const ka = a.md || a.ds.slice(5);
-    const kb = b.md || b.ds.slice(5);
-    return ka.localeCompare(kb);
-  });
-  el.innerHTML = sorted.map(d => {
-    const dateStr = d.md
-      ? new Date(`2000-${d.md}T12:00:00`).toLocaleDateString('tr', { day: 'numeric', month: 'long' }) + ' (her yıl)'
-      : new Date(d.ds + 'T12:00:00').toLocaleDateString('tr', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const nationalHtml = Object.entries(NATIONAL_HOLIDAYS)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([md, d]) => {
+      const dateStr = new Date(`2000-${md}T12:00:00`).toLocaleDateString('tr', { day: 'numeric', month: 'long' }) + ' — her yıl';
+      return `<div class="sd-national-item">
+        <span class="sd-national-emoji">${d.emoji}</span>
+        <div class="sd-national-info">
+          <div class="sd-national-name">${d.name}</div>
+          <div class="sd-national-date">${dateStr}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  const religiousHtml = RELIGIOUS_HOLIDAY_RANGES.map(r => {
+    const s = new Date(r.start + 'T12:00:00');
+    const e = new Date(r.end   + 'T12:00:00');
+    const year = s.getFullYear();
+    const startStr = s.toLocaleDateString('tr', { day: 'numeric', month: 'long' });
+    const endStr   = e.toLocaleDateString('tr', { day: 'numeric', month: 'long' });
+    const dateStr  = startStr === endStr ? `${startStr} ${year}` : `${startStr} – ${endStr} ${year}`;
     return `<div class="sd-national-item">
-      <span class="sd-national-emoji">${d.emoji}</span>
+      <span class="sd-national-emoji">${r.emoji}</span>
       <div class="sd-national-info">
-        <div class="sd-national-name">${d.name}</div>
+        <div class="sd-national-name">${r.name}</div>
         <div class="sd-national-date">${dateStr}</div>
       </div>
     </div>`;
   }).join('');
+
+  el.innerHTML =
+    `<div class="sd-group-title">🇹🇷 Resmi Tatiller</div>${nationalHtml}` +
+    `<div class="sd-group-title" style="margin-top:12px">☪️ Dini Bayramlar</div>${religiousHtml}`;
 }
 
 function addPersonalDay() {
