@@ -1943,6 +1943,76 @@ function openStats(tab) {
   ov.classList.add('open');
 }
 
+// ---- Focus Mode ----
+let focusTasks = [];
+let focusIndex = 0;
+
+function openFocusMode() {
+  focusTasks = filteredTasks().filter(t => !isDone(t));
+  focusIndex = 0;
+  if (focusTasks.length === 0) {
+    $('focus-body').innerHTML = `<div class="focus-empty"><div class="focus-empty-icon">🎉</div><div>Tüm görevler tamamlandı!</div></div>`;
+    $('focus-counter').textContent = '';
+    $('focus-nav').style.display = 'none';
+  } else {
+    $('focus-nav').style.display = '';
+    renderFocusTask();
+  }
+  $('focus-overlay').classList.remove('hidden');
+}
+
+function closeFocusMode() {
+  $('focus-overlay').classList.add('hidden');
+}
+
+function renderFocusTask() {
+  const t = focusTasks[focusIndex];
+  if (!t) return;
+  $('focus-counter').textContent = `${focusIndex + 1} / ${focusTasks.length}`;
+
+  const priLabel = { high: '🔴 Yüksek', normal: '🟣 Normal', low: '🟢 Düşük' };
+  const listName = (() => { const l = allLists().find(l => l.id === t.category); return l ? `${l.emoji} ${l.name}` : ''; })();
+  const subtasksDone = (t.subtasks || []).filter(s => s.done).length;
+
+  $('focus-body').innerHTML = `
+    <div class="focus-priority-badge ${t.priority}">${priLabel[t.priority] || priLabel.normal}</div>
+    <div class="focus-title">${t.text}</div>
+    <div class="focus-meta">
+      ${listName ? `<span class="focus-meta-item">${listName}</span>` : ''}
+      ${t.deadline ? `<span class="focus-meta-item">📅 ${fmtDate(t.deadline)}</span>` : ''}
+      ${t.subtasks?.length ? `<span class="focus-meta-item">☑️ ${subtasksDone}/${t.subtasks.length}</span>` : ''}
+      ${t.tags?.length ? t.tags.map(tag => `<span class="focus-meta-item tag-chip">${tag}</span>`).join('') : ''}
+    </div>
+    ${t.notes ? `<div class="focus-notes">${t.notes}</div>` : ''}
+    ${t.subtasks?.length ? `
+      <div class="focus-subtasks">
+        ${t.subtasks.map((s, i) => `
+          <div class="focus-subtask${s.done ? ' done-sub' : ''}" onclick="focusToggleSubtask('${t.id}', ${i})">
+            <div class="focus-subtask-check">${s.done ? '✓' : ''}</div>
+            <span>${s.text}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+  `;
+
+  $('focus-prev').disabled = focusIndex === 0;
+  $('focus-next').disabled = focusIndex === focusTasks.length - 1;
+  $('focus-prev').style.opacity = focusIndex === 0 ? '0.3' : '1';
+  $('focus-next').style.opacity = focusIndex === focusTasks.length - 1 ? '0.3' : '1';
+}
+
+async function focusToggleSubtask(taskId, idx) {
+  const t = tasks.find(t => t.id === taskId);
+  if (!t || !t.subtasks[idx]) return;
+  t.subtasks[idx].done = !t.subtasks[idx].done;
+  if (currentUser && db) await saveTaskToFirestore(t); else saveLocalTasks();
+  // focusTasks referansını güncelle
+  const fi = focusTasks.findIndex(ft => ft.id === taskId);
+  if (fi !== -1) focusTasks[fi] = t;
+  renderFocusTask();
+}
+
 // ---- Share ----
 async function openShareModal() {
   if (!currentUser || !db) return;
@@ -3154,6 +3224,24 @@ searchClear.addEventListener('click', () => {
 themeBtn.addEventListener('click', toggleTheme);
 notifBtn.addEventListener('click', openSettings);
 $('stats-btn').addEventListener('click', openStats);
+$('focus-btn').addEventListener('click', openFocusMode);
+$('focus-close').addEventListener('click', closeFocusMode);
+$('focus-prev').addEventListener('click', () => { if (focusIndex > 0) { focusIndex--; renderFocusTask(); } });
+$('focus-next').addEventListener('click', () => { if (focusIndex < focusTasks.length - 1) { focusIndex++; renderFocusTask(); } });
+$('focus-done').addEventListener('click', async () => {
+  const t = focusTasks[focusIndex];
+  if (!t) return;
+  await toggleTask(t.id);
+  focusTasks = filteredTasks().filter(ft => !isDone(ft));
+  if (focusTasks.length === 0) {
+    $('focus-body').innerHTML = `<div class="focus-empty"><div class="focus-empty-icon">🎉</div><div>Tüm görevler tamamlandı!</div></div>`;
+    $('focus-counter').textContent = '';
+    $('focus-nav').style.display = 'none';
+  } else {
+    focusIndex = Math.min(focusIndex, focusTasks.length - 1);
+    renderFocusTask();
+  }
+});
 $('share-btn').addEventListener('click', openShareModal);
 $('share-close').addEventListener('click', () => { $('share-overlay').classList.add('hidden'); $('share-overlay').classList.remove('open'); });
 $('share-overlay').addEventListener('click', e => { if (e.target === $('share-overlay')) { $('share-overlay').classList.add('hidden'); $('share-overlay').classList.remove('open'); } });
