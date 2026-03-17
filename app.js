@@ -776,9 +776,22 @@ function subscribeUserDoc() {
 
       // Lists
       if (d.lists) {
-        customLists = d.lists;
-        localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
+        // Firestore'daki __firestore__ placeholder'ları mevcut local resim verisiyle koru
+        customLists = d.lists.map(remoteList => {
+          if (remoteList.bg && remoteList.bg.type === 'image' && remoteList.bg.value === '__firestore__') {
+            const local = customLists.find(l => l.id === remoteList.id);
+            if (local?.bg?.value && local.bg.value !== '__firestore__') {
+              return { ...remoteList, bg: local.bg };
+            }
+          }
+          return remoteList;
+        });
+        try { localStorage.setItem(LISTS_KEY, JSON.stringify(customLists)); } catch {}
         renderListChips(); renderListOptions();
+        if (lpOpen && selectedList) {
+          const openList = customLists.find(l => l.id === selectedList);
+          if (openList?.bg) applyListBg(openList.bg);
+        }
       }
 
       // Settings — sadece ilk snapshot'ta uygula (oturum ortasında ezmemek için)
