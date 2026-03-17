@@ -3305,11 +3305,9 @@ function pomoTick() {
   if (pomoSecondsLeft <= 0) {
     clearInterval(pomoInterval); pomoRunning = false;
     $('pomo-start').textContent = 'Başlat';
-    if (pomoMode === 'work') {
-      pomoSessions++;
-      localStorage.setItem('yapsak-pomo-sessions', pomoSessions);
-      const sc = $('pomo-session-count'); if (sc) sc.textContent = pomoSessions;
-    }
+    pomoSessions++;
+    localStorage.setItem('yapsak-pomo-sessions', pomoSessions);
+    const sc = $('pomo-session-count'); if (sc) sc.textContent = pomoSessions;
     playPomodoroEnd();
     document.title = 'Yapsak Bence';
     if ('Notification' in window && Notification.permission === 'granted') {
