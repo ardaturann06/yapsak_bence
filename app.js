@@ -515,6 +515,12 @@ function openLpBgPicker() {
 function closeLpBgPicker() {
   $('lp-bg-picker').classList.remove('open');
   $('lp-bg-backdrop').classList.remove('open');
+  if (_pendingBg) {
+    // Kaydedilmeden kapandı — mevcut kaydedilmiş arkaplanı geri yükle
+    applyListBg(getListBg(selectedList));
+    _pendingBg = null;
+    $('lp-bg-save').style.display = 'none';
+  }
 }
 
 function renderLpBgSwatches() {
@@ -3327,6 +3333,7 @@ $('lp-bg-btn').addEventListener('click', toggleLpBgPicker);
 $('lp-bg-handle').addEventListener('click', closeLpBgPicker);
 $('lp-bg-backdrop').addEventListener('click', closeLpBgPicker);
 // lp-bg-image-btn is a <label for="lp-bg-image"> — no click handler needed
+let _pendingBg = null;
 $('lp-bg-image').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -3336,7 +3343,6 @@ $('lp-bg-image').addEventListener('change', e => {
   reader.onload = ev => {
     const img = new Image();
     img.onload = () => {
-      // Firestore'a sığması için max 800px, %60 kalite (~150-300KB base64)
       const max = 800;
       let w = img.width, h = img.height;
       if (w > max) { h = Math.round(h * max / w); w = max; }
@@ -3345,12 +3351,24 @@ $('lp-bg-image').addEventListener('change', e => {
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-      saveListBg({ type: 'image', value: dataUrl });
+      _pendingBg = { type: 'image', value: dataUrl };
+      applyListBg(_pendingBg);
+      $('lp-bg-save').style.display = '';
     };
-    img.onerror = () => saveListBg({ type: 'image', value: ev.target.result });
+    img.onerror = () => {
+      _pendingBg = { type: 'image', value: ev.target.result };
+      applyListBg(_pendingBg);
+      $('lp-bg-save').style.display = '';
+    };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
+});
+$('lp-bg-save').addEventListener('click', () => {
+  if (!_pendingBg) return;
+  saveListBg(_pendingBg);
+  _pendingBg = null;
+  $('lp-bg-save').style.display = 'none';
 });
 $('lp-bg-reset').addEventListener('click', () => saveListBg({ type: 'default', value: '' }));
 
