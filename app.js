@@ -11,6 +11,7 @@ const SETTINGS_KEY = 'yapsak-bence-settings';
 const XP_KEY       = 'yapsak-bence-xp';
 const STREAK_KEY   = 'yapsak-bence-streak';
 const LISTS_KEY    = 'yapsak-bence-lists';
+const DAILY_KEY    = 'yapsak-bence-daily';
 
 // ---- XP / Level System ----
 const XP_PER_LEVEL = 300;
@@ -64,6 +65,19 @@ function renderXPBar() {
   label.textContent = `${xpInLevel} / ${XP_PER_LEVEL} XP`;
 }
 
+function trackDaily(xpEarned) {
+  const today = todayStr();
+  let daily = {};
+  try { daily = JSON.parse(localStorage.getItem(DAILY_KEY) || '{}'); } catch {}
+  if (!daily[today]) daily[today] = { done: 0, xp: 0 };
+  daily[today].done++;
+  daily[today].xp += xpEarned;
+  // 30 günden eski kayıtları temizle
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+  Object.keys(daily).forEach(k => { if (new Date(k) < cutoff) delete daily[k]; });
+  localStorage.setItem(DAILY_KEY, JSON.stringify(daily));
+}
+
 async function addXP(task) {
   const base     = XP_REWARDS[task.priority] ?? XP_REWARDS.normal;
   const onTime   = task.deadline && new Date(task.deadline) >= new Date(new Date().toDateString());
@@ -71,6 +85,7 @@ async function addXP(task) {
   const oldLevel = levelFromXP(xpTotal);
   xpTotal += earned;
   const newLevel = levelFromXP(xpTotal);
+  trackDaily(earned);
   saveXPLocal();
   await saveXPFirestore();
   renderXPBar();
@@ -1792,26 +1807,23 @@ function initKanbanDrag() {
 }
 
 // ---- Stats ----
-function openStats() {
+function renderStatsGenel() {
   const total    = tasks.length;
   const done     = tasks.filter(isDone).length;
   const inprog   = tasks.filter(t => t.status === 'inprogress').length;
   const overdue  = tasks.filter(isOverdue).length;
   const pct      = total ? Math.round(done / total * 100) : 0;
 
-  // Category breakdown
-  const catLabels = { genel: 'Genel', is: 'İş', kisisel: 'Kişisel', alisveris: 'Alışveriş', saglik: 'Sağlık' };
   const catCounts = {};
   tasks.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
+  allLists().forEach(l => { if (!catCounts[l.id]) catCounts[l.id] = 0; });
   const maxCat = Math.max(...Object.values(catCounts), 1);
 
-  // Priority breakdown
   const priColors = { high: '#f87272', normal: '#7c6dfa', low: '#60d999' };
   const priLabels = { high: 'Yüksek', normal: 'Normal', low: 'Düşük' };
   const priCounts = { high: 0, normal: 0, low: 0 };
   tasks.forEach(t => { if (priCounts[t.priority] !== undefined) priCounts[t.priority]++; });
 
-  // Donut SVG for completion
   const r = 40, cx = 50, cy = 50, circ = 2 * Math.PI * r;
   const fill = circ * pct / 100;
   const donutSVG = `<svg width="100" height="100" viewBox="0 0 100 100">
@@ -1822,14 +1834,13 @@ function openStats() {
       fill="var(--text)" font-size="16" font-weight="700">${pct}%</text>
   </svg>`;
 
-  $('stats-body').innerHTML = `
+  return `
     <div class="stats-summary">
       <div class="stat-card accent"><span class="stat-card-label">Toplam</span><span class="stat-card-value">${total}</span></div>
       <div class="stat-card green"><span class="stat-card-label">Tamamlanan</span><span class="stat-card-value">${done}</span></div>
       <div class="stat-card warn"><span class="stat-card-label">Devam Eden</span><span class="stat-card-value">${inprog}</span></div>
       <div class="stat-card red"><span class="stat-card-label">Gecikmiş</span><span class="stat-card-value">${overdue}</span></div>
     </div>
-
     <div class="stats-section-title">Tamamlanma Oranı</div>
     <div class="stats-donut-wrap">
       ${donutSVG}
@@ -1838,18 +1849,16 @@ function openStats() {
         <div class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--surface3)"></span>Kalan: ${total - done}</div>
       </div>
     </div>
-
     <div class="stats-section-title">Kategoriye Göre</div>
-    ${Object.entries(catLabels).map(([key, label]) => {
-      const count = catCounts[key] || 0;
-      const w = maxCat ? Math.round(count / maxCat * 100) : 0;
+    ${allLists().map(l => {
+      const count = catCounts[l.id] || 0;
+      const w = Math.round(count / maxCat * 100);
       return `<div class="stats-bar-row">
-        <span class="stats-bar-label">${label}</span>
+        <span class="stats-bar-label">${l.emoji} ${l.name}</span>
         <div class="stats-bar-wrap"><div class="stats-bar-fill" style="width:${w}%"></div></div>
         <span class="stats-bar-count">${count}</span>
       </div>`;
     }).join('')}
-
     <div class="stats-section-title">Önceliğe Göre</div>
     ${Object.entries(priLabels).map(([key, label]) => {
       const count = priCounts[key] || 0;
@@ -1860,12 +1869,75 @@ function openStats() {
         <span class="stats-bar-count">${count}</span>
       </div>`;
     }).join('')}
-
-    <button class="btn btn-save" style="width:100%;margin-top:20px" onclick="exportCSV()">
-      CSV İndir
-    </button>
+    <button class="btn btn-save" style="width:100%;margin-top:20px" onclick="exportCSV()">CSV İndir</button>
   `;
+}
 
+function renderStatsHaftalik() {
+  let daily = {};
+  try { daily = JSON.parse(localStorage.getItem(DAILY_KEY) || '{}'); } catch {}
+
+  // Son 7 gün
+  const days = [];
+  const dayNames = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ key, label: dayNames[d.getDay()], data: daily[key] || { done: 0, xp: 0 } });
+  }
+
+  const weekDone = days.reduce((s, d) => s + d.data.done, 0);
+  const weekXP   = days.reduce((s, d) => s + d.data.xp, 0);
+  const bestDay  = days.reduce((a, b) => b.data.done > a.data.done ? b : a, days[0]);
+  const maxDone  = Math.max(...days.map(d => d.data.done), 1);
+  const maxXP    = Math.max(...days.map(d => d.data.xp), 1);
+
+  const donesBars = days.map(d => {
+    const h = Math.round(d.data.done / maxDone * 80);
+    const isToday = d.key === todayStr();
+    return `<div class="weekly-bar-col">
+      <span class="weekly-bar-val">${d.data.done || ''}</span>
+      <div class="weekly-bar-track">
+        <div class="weekly-bar-fill${isToday ? ' today' : ''}" style="height:${h}px"></div>
+      </div>
+      <span class="weekly-bar-lbl">${d.label}</span>
+    </div>`;
+  }).join('');
+
+  const xpBars = days.map(d => {
+    const h = Math.round(d.data.xp / maxXP * 80);
+    const isToday = d.key === todayStr();
+    return `<div class="weekly-bar-col">
+      <span class="weekly-bar-val">${d.data.xp || ''}</span>
+      <div class="weekly-bar-track">
+        <div class="weekly-bar-fill xp${isToday ? ' today' : ''}" style="height:${h}px"></div>
+      </div>
+      <span class="weekly-bar-lbl">${d.label}</span>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="stats-summary">
+      <div class="stat-card green"><span class="stat-card-label">Bu Hafta</span><span class="stat-card-value">${weekDone}</span><span class="stat-card-sub">görev</span></div>
+      <div class="stat-card accent"><span class="stat-card-label">Kazanılan</span><span class="stat-card-value">${weekXP}</span><span class="stat-card-sub">XP</span></div>
+      <div class="stat-card warn"><span class="stat-card-label">En İyi Gün</span><span class="stat-card-value">${bestDay.data.done > 0 ? bestDay.label : '—'}</span><span class="stat-card-sub">${bestDay.data.done > 0 ? bestDay.data.done + ' görev' : ''}</span></div>
+    </div>
+    <div class="stats-section-title">Tamamlanan Görev</div>
+    <div class="weekly-bars">${donesBars}</div>
+    <div class="stats-section-title" style="margin-top:24px">Kazanılan XP</div>
+    <div class="weekly-bars">${xpBars}</div>
+  `;
+}
+
+function openStats(tab) {
+  tab = tab || 'genel';
+  $('stats-body').innerHTML = `
+    <div class="stats-tabs">
+      <button class="stats-tab${tab==='genel'?' active':''}" onclick="openStats('genel')">Genel</button>
+      <button class="stats-tab${tab==='haftalik'?' active':''}" onclick="openStats('haftalik')">Haftalık</button>
+    </div>
+    ${tab === 'genel' ? renderStatsGenel() : renderStatsHaftalik()}
+  `;
   const ov = $('stats-overlay');
   ov.classList.remove('hidden');
   ov.classList.add('open');
