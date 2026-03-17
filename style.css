@@ -1888,3 +1888,4 @@ select.modal-input {
 /* Admin detail — badge */
 .admin-detail-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: color-mix(in srgb, var(--accent) 15%, var(--surface)); color: var(--accent); border: 1px solid var(--accent); width: fit-content; }
 .admin-detail-badge.frozen { background: color-mix(in srgb, #ef4444 15%, var(--surface)); color: #ef4444; border-color: #ef4444; }
+.emoji-grid-btn:hover { background: var(--accent-alpha, rgba(124,109,250,.2)) !important; }

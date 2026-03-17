@@ -2291,18 +2291,43 @@ function renderNationalDaysList() {
     `<div class="sd-group-title" style="margin-top:10px">☪️ Dini Bayramlar</div><div class="sd-scroll-row">${religiousCards}</div>`;
 }
 
+const SD_EMOJIS = [
+  '🎂','🎉','🎊','🥳','🎁','❤️','💍','👶','🏠','✈️','🌍','🌟','⭐','🌙','☀️',
+  '🌸','🌺','🌹','🌻','🍀','🎶','🎵','🎤','🏆','🥇','🎯','🎮','📚','🖥️','💼',
+  '🙏','👏','🤝','💪','🫂','😊','🥰','😍','🤩','😎','🧡','💛','💚','💙','💜',
+  '🍕','🍰','🧁','🍾','🥂','☕','🎄','🎃','🪔','🕌','⛪','🕍','🏖️','🏔️','🗺️'
+];
+let sdSelectedEmoji = '🎂';
+
+function openSdEmojiPicker() {
+  renderSdEmojiGrid($('sd-emoji-search').value);
+  $('sd-emoji-picker').style.display = '';
+  setTimeout(() => $('sd-emoji-search').focus(), 50);
+}
+function closeSdEmojiPicker() {
+  $('sd-emoji-picker').style.display = 'none';
+  $('sd-emoji-search').value = '';
+}
+function renderSdEmojiGrid(filter = '') {
+  const list = filter ? SD_EMOJIS.filter(e => e.includes(filter)) : SD_EMOJIS;
+  $('sd-emoji-grid').innerHTML = list.map(e =>
+    `<button type="button" class="emoji-grid-btn" data-e="${e}" style="font-size:1.3rem;padding:4px;border-radius:6px;background:none;border:none;cursor:pointer;transition:background .15s">${e}</button>`
+  ).join('');
+}
+
 function addPersonalDay() {
   const name  = $('sd-name').value.trim();
-  const emoji = $('sd-emoji').value.trim() || '⭐';
+  const emoji = sdSelectedEmoji || '⭐';
   const date  = $('sd-date').value;
   const yearly = $('sd-yearly').checked;
   if (!name || !date) { $('sd-name').focus(); return; }
   const id = 'pd' + Date.now().toString(36);
   personalDays.push({ id, name, emoji, date, yearly });
   savePersonalDays();
-  $('sd-name').value  = '';
-  $('sd-emoji').value = '';
-  $('sd-date').value  = '';
+  $('sd-name').value = '';
+  $('sd-date').value = '';
+  sdSelectedEmoji = '🎂';
+  $('sd-emoji-btn').textContent = '🎂';
   renderSpecialDaysList();
   renderCalendar();
 }
@@ -3357,6 +3382,18 @@ $('special-days-close').addEventListener('click', closeSpecialDaysModal);
 $('special-days-overlay').addEventListener('click', e => { if (e.target === $('special-days-overlay')) closeSpecialDaysModal(); });
 $('sd-add-btn').addEventListener('click', addPersonalDay);
 $('sd-name').addEventListener('keydown', e => { if (e.key === 'Enter') addPersonalDay(); });
+$('sd-emoji-btn').addEventListener('click', e => { e.stopPropagation(); openSdEmojiPicker(); });
+$('sd-emoji-search').addEventListener('input', e => renderSdEmojiGrid(e.target.value));
+$('sd-emoji-grid').addEventListener('click', e => {
+  const btn = e.target.closest('[data-e]');
+  if (!btn) return;
+  sdSelectedEmoji = btn.dataset.e;
+  $('sd-emoji-btn').textContent = sdSelectedEmoji;
+  closeSdEmojiPicker();
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#sd-emoji-picker') && !e.target.closest('#sd-emoji-btn')) closeSdEmojiPicker();
+});
 
 // Calendar navigation
 $('cal-prev').addEventListener('click', () => {
