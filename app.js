@@ -161,7 +161,7 @@ async function saveListsFirestore() {
     if (l.bg && l.bg.type === 'image' && l.bg.value && l.bg.value.startsWith('data:')) {
       // Resmi ayrı dokümana kaydet
       db.collection('users').doc(currentUser.uid).collection('listBgs').doc(l.id)
-        .set({ value: l.bg.value }).catch(() => {});
+        .set({ value: l.bg.value }).catch(err => console.error('listBgs yazma hatası:', err.code));
       return { ...l, bg: { type: 'image', value: '__firestore__' } };
     }
     return l;
@@ -714,6 +714,8 @@ function subscribeFirestore() {
       tasks = migrate(snap.docs.map(d => ({ id: d.id, ...d.data() }))).sort((a, b) => a.order - b.order);
       render();
       if (firstSnap) { firstSnap = false; checkMissedReminders(); }
+    }, err => {
+      console.error('Tasks onSnapshot hatası:', err.code);
     });
 }
 
