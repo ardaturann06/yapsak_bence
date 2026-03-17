@@ -174,20 +174,36 @@ async function loadListsFirestore() {
   try {
     const doc = await db.collection('users').doc(currentUser.uid).get();
     if (doc.exists && doc.data().lists) {
-      customLists = doc.data().lists;
-      // __firestore__ placeholder olan resimleri ayrı koleksiyondan yükle
-      const bgPromises = customLists
+      const remoteLists = doc.data().lists;
+      // Resim verisini koru: __firestore__ olanları subcollection'dan çek,
+      // başarısız olursa mevcut local verisi kullan
+      const bgPromises = remoteLists
         .filter(l => l.bg && l.bg.type === 'image' && l.bg.value === '__firestore__')
-        .map(l => db.collection('users').doc(currentUser.uid).collection('listBgs').doc(l.id).get()
-          .then(d => { if (d.exists) l.bg.value = d.data().value; }).catch(() => {}));
+        .map(l => {
+          const localList = customLists.find(ll => ll.id === l.id);
+          return db.collection('users').doc(currentUser.uid).collection('listBgs').doc(l.id).get()
+            .then(d => {
+              if (d.exists && d.data().value) {
+                l.bg.value = d.data().value;
+              } else if (localList?.bg?.value && localList.bg.value !== '__firestore__') {
+                l.bg.value = localList.bg.value; // local fallback
+              }
+            })
+            .catch(() => {
+              if (localList?.bg?.value && localList.bg.value !== '__firestore__') {
+                l.bg = localList.bg; // local fallback
+              }
+            });
+        });
       await Promise.all(bgPromises);
-      localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
+      customLists = remoteLists;
+      // localStorage'a sadece gerçek resim verisi olan listeyi kaydet
+      try { localStorage.setItem(LISTS_KEY, JSON.stringify(customLists)); } catch {}
       renderListChips();
       renderListOptions();
-      // Liste sayfası açıksa güncel arkaplanı uygula
       if (lpOpen && selectedList) {
         const openList = customLists.find(l => l.id === selectedList);
-        if (openList && openList.bg) applyListBg(openList.bg);
+        if (openList?.bg) applyListBg(openList.bg);
       }
     }
   } catch {}
