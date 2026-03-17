@@ -504,20 +504,31 @@ function saveListBg(bg) {
 
 function applyListBg(bg) {
   const screen = $('list-page-screen');
+  const overlay = $('lp-bg-overlay');
   if (!bg || bg.type === 'default' || !bg.value || bg.value === '__firestore__') {
     screen.style.background = '';
     screen.style.backgroundImage = '';
     screen.classList.remove('lp-custom-bg');
+    if (overlay) overlay.style.background = 'rgba(0,0,0,0)';
+    $('lp-bg-dim-row').style.display = 'none';
+    $('lp-bg-dim').value = 0;
   } else if (bg.type === 'image') {
     screen.style.background = '';
     screen.style.backgroundImage = `url(${bg.value})`;
     screen.style.backgroundSize = 'cover';
     screen.style.backgroundPosition = 'center';
     screen.classList.add('lp-custom-bg');
+    const dim = bg.dim ?? 0;
+    if (overlay) overlay.style.background = `rgba(0,0,0,${dim / 100})`;
+    $('lp-bg-dim-row').style.display = '';
+    $('lp-bg-dim').value = dim;
   } else {
     screen.style.background = bg.value;
     screen.style.backgroundImage = '';
     screen.classList.add('lp-custom-bg');
+    if (overlay) overlay.style.background = 'rgba(0,0,0,0)';
+    $('lp-bg-dim-row').style.display = 'none';
+    $('lp-bg-dim').value = 0;
   }
 }
 
@@ -3398,8 +3409,27 @@ $('lp-bg-image').addEventListener('change', e => {
   };
   reader.readAsDataURL(file);
 });
+$('lp-bg-dim').addEventListener('input', e => {
+  const dim = parseInt(e.target.value);
+  const overlay = $('lp-bg-overlay');
+  if (overlay) overlay.style.background = `rgba(0,0,0,${dim / 100})`;
+  // Anlık önizleme için pending veya mevcut bg'yi güncelle
+  const current = _pendingBg || getListBg(selectedList);
+  if (current && current.type === 'image') current.dim = dim;
+});
+$('lp-bg-dim').addEventListener('change', e => {
+  // Slider bırakılınca kaydet (pending değilse direkt kaydet)
+  if (!_pendingBg) {
+    const bg = getListBg(selectedList);
+    if (bg && bg.type === 'image') {
+      bg.dim = parseInt(e.target.value);
+      saveListBg(bg);
+    }
+  }
+});
 $('lp-bg-save').addEventListener('click', () => {
   if (!_pendingBg) return;
+  _pendingBg.dim = parseInt($('lp-bg-dim').value);
   saveListBg(_pendingBg);
   _pendingBg = null;
   $('lp-bg-save').style.display = 'none';

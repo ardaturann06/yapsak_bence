@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yapsak Bence</title>
-  <link rel="stylesheet" href="style.css?v=50" />
+  <link rel="stylesheet" href="style.css?v=51" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c6dfa" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -434,6 +434,7 @@
 
   <!-- LIST PAGE SCREEN (full-screen) -->
   <div class="list-page-screen" id="list-page-screen">
+    <div id="lp-bg-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:0;background:rgba(0,0,0,0);transition:background .2s"></div>
     <header class="lp-header">
       <button class="icon-btn" id="lp-back" title="Geri">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -460,6 +461,10 @@
           <label class="btn" for="lp-bg-image" id="lp-bg-image-btn">📷 Resim Seç</label>
           <button class="btn btn-primary" id="lp-bg-save" style="display:none">✓ Kaydet</button>
           <button class="btn" id="lp-bg-reset">↩ Varsayılan</button>
+        </div>
+        <div id="lp-bg-dim-row" style="display:none;margin-top:10px">
+          <div class="bg-presets-label" style="margin-bottom:6px">☀️ Parlaklık</div>
+          <input type="range" id="lp-bg-dim" min="0" max="85" value="0" style="width:100%;accent-color:var(--accent)" />
         </div>
       </div>
     </div>
@@ -936,7 +941,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=50"></script>
-  <script src="app.js?v=50"></script>
+  <script src="firebase-config.js?v=51"></script>
+  <script src="app.js?v=51"></script>
 </body>
 </html>
