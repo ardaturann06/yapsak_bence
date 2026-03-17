@@ -3,7 +3,7 @@
    Offline cache + background notifications
    ============================================================ */
 
-const CACHE_NAME = 'yapsak-bence-v59';
+const CACHE_NAME = 'yapsak-bence-v60';
 const CACHE_FILES = [
   './',
   './index.html',
