@@ -2538,7 +2538,8 @@ function renderAdminStats() {
   const activeToday = adminUsers.filter(u => u.streak?.lastDate === today).length;
   const totalXP = adminUsers.reduce((s, u) => s + (u.xp || 0), 0);
   $('adm-user-count').textContent  = adminUsers.length;
-  $('adm-task-count').textContent  = '—';
+  const totalLists = adminUsers.reduce((s, u) => s + (u.lists?.length || 0), 0);
+  $('adm-task-count').textContent  = totalLists;
   $('adm-xp-total').textContent    = totalXP.toLocaleString('tr');
   $('adm-active-today').textContent = activeToday;
 }
