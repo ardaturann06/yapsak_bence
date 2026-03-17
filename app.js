@@ -3377,14 +3377,14 @@ $('lp-bg-image').addEventListener('change', e => {
   reader.onload = ev => {
     const img = new Image();
     img.onload = () => {
-      const max = 800;
+      const max = 1280;
       let w = img.width, h = img.height;
       if (w > max) { h = Math.round(h * max / w); w = max; }
       if (h > max) { w = Math.round(w * max / h); h = max; }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       _pendingBg = { type: 'image', value: dataUrl };
       applyListBg(_pendingBg);
       $('lp-bg-save').style.display = '';
