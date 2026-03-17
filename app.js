@@ -184,6 +184,11 @@ async function loadListsFirestore() {
       localStorage.setItem(LISTS_KEY, JSON.stringify(customLists));
       renderListChips();
       renderListOptions();
+      // Liste sayfası açıksa güncel arkaplanı uygula
+      if (lpOpen && selectedList) {
+        const openList = customLists.find(l => l.id === selectedList);
+        if (openList && openList.bg) applyListBg(openList.bg);
+      }
     }
   } catch {}
 }
@@ -483,7 +488,7 @@ function saveListBg(bg) {
 
 function applyListBg(bg) {
   const screen = $('list-page-screen');
-  if (!bg || bg.type === 'default' || !bg.value) {
+  if (!bg || bg.type === 'default' || !bg.value || bg.value === '__firestore__') {
     screen.style.background = '';
     screen.style.backgroundImage = '';
     screen.classList.remove('lp-custom-bg');
