@@ -142,13 +142,29 @@ let editingListId   = null;
 
 function allLists() {
   const overrides = new Map(customLists.map(l => [l.id, l]));
-  const defaults  = DEFAULT_LISTS.map(l => overrides.get(l.id) || l);
-  const extras    = customLists.filter(l => !DEFAULT_LISTS.find(d => d.id === l.id));
+  const defaults  = DEFAULT_LISTS.map(l => overrides.get(l.id) || l).filter(l => !l.hidden);
+  const extras    = customLists.filter(l => !DEFAULT_LISTS.find(d => d.id === l.id) && !l.hidden);
   return [...defaults, ...extras];
+}
+function hiddenLists() {
+  const overrides = new Map(customLists.map(l => [l.id, l]));
+  return DEFAULT_LISTS.map(l => overrides.get(l.id) || l).filter(l => l.hidden);
 }
 // Sadece kullanıcı tarafından sıfırdan oluşturulan listeler (default override değil)
 function isUserCreated(id) {
   return !!customLists.find(c => c.id === id) && !DEFAULT_LISTS.find(d => d.id === id);
+}
+function hideList(id) {
+  if (!DEFAULT_LISTS.find(d => d.id === id)) return; // sadece default listeler gizlenebilir
+  const existing = customLists.find(l => l.id === id);
+  if (existing) { existing.hidden = true; }
+  else { const def = DEFAULT_LISTS.find(d => d.id === id); customLists.push({ ...def, hidden: true }); }
+  if (selectedList === id) { selectedList = null; if (lpOpen) closeListPage(); }
+  saveLists(); renderListChips(); renderListOptions(); render();
+}
+function restoreList(id) {
+  const existing = customLists.find(l => l.id === id);
+  if (existing) { delete existing.hidden; saveLists(); renderListChips(); renderListOptions(); render(); }
 }
 
 function loadLists() {
@@ -227,7 +243,21 @@ async function loadListsFirestore() {
 function renderListChips() {
   const wrap = $('list-chips');
   if (!wrap) return;
-  const all = allLists();
+  const all    = allLists();
+  const hidden = hiddenLists();
+
+  const hiddenSection = hidden.length
+    ? `<div class="sidebar-hidden-section">
+        <div class="sidebar-hidden-label">Gizli listeler</div>
+        ${hidden.map(l =>
+          `<div class="sidebar-hidden-item">
+            <span>${l.emoji} ${l.name}</span>
+            <button class="list-chip-restore" data-restore="${l.id}" title="Geri yükle">↩</button>
+          </div>`
+        ).join('')}
+      </div>`
+    : '';
+
   wrap.innerHTML =
     `<button class="list-chip${selectedList === null ? ' active' : ''}" data-list="">Tümü</button>` +
     all.map(l =>
@@ -235,11 +265,14 @@ function renderListChips() {
       `<span class="list-chip-label">${l.emoji} ${l.name}</span>` +
       `<span class="list-chip-actions">` +
       `<span class="list-chip-edit" data-edit="${l.id}" title="Düzenle">✎</span>` +
-      (isUserCreated(l.id) ? `<span class="list-chip-del" data-del="${l.id}" title="Sil">×</span>` : '') +
+      (isUserCreated(l.id)
+        ? `<span class="list-chip-del" data-del="${l.id}" title="Sil">×</span>`
+        : `<span class="list-chip-hide" data-hide="${l.id}" title="Gizle">🙈</span>`) +
       `</span>` +
       `</button>`
     ).join('') +
-    `<button class="list-chip list-chip-add" id="list-chip-add">＋ Yeni</button>`;
+    `<button class="list-chip list-chip-add" id="list-chip-add">＋ Yeni</button>` +
+    hiddenSection;
 
   wrap.querySelectorAll('.list-chip[data-list]').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -259,8 +292,22 @@ function renderListChips() {
     span.addEventListener('click', e => {
       e.stopPropagation();
       const listName = allLists().find(l => l.id === span.dataset.del)?.name || '';
-      if (!confirm(`"${listName}" listesini sil?`)) return;
+      if (!confirm(`"${listName}" listesini sil? Bu listedeki görevler kaybolmaz.`)) return;
       deleteList(span.dataset.del);
+    });
+  });
+  wrap.querySelectorAll('.list-chip-hide').forEach(span => {
+    span.addEventListener('click', e => {
+      e.stopPropagation();
+      const listName = allLists().find(l => l.id === span.dataset.hide)?.name || '';
+      if (!confirm(`"${listName}" listesini gizle? Görevler silinmez, istediğin zaman geri yükleyebilirsin.`)) return;
+      hideList(span.dataset.hide);
+    });
+  });
+  wrap.querySelectorAll('.list-chip-restore').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      restoreList(btn.dataset.restore);
     });
   });
   const addBtn = $('list-chip-add');
@@ -1098,7 +1145,8 @@ function updateStats() {
 function render() {
   updateStats();
   if (lpOpen) { renderListPage(); return; }
-  if (view === 'list') renderList();
+  if (view === 'list')   renderList();
+  else if (view === 'agenda') renderAgenda();
   else renderKanban();
 }
 
@@ -2114,22 +2162,22 @@ async function bulkDelete() {
 
 // ---- CSV Export ----
 function exportCSV() {
-  const headers = ['Görev', 'Durum', 'Öncelik', 'Kategori', 'Son Tarih', 'Hatırlatıcı', 'Etiketler', 'Notlar', 'Oluşturulma'];
+  const headers   = ['Görev', 'Durum', 'Öncelik', 'Liste', 'Son Tarih', 'Hatırlatıcı', 'Etiketler', 'Notlar', 'Alt Görevler', 'Oluşturulma'];
   const statusMap = { todo: 'Yapılacak', inprogress: 'Devam Ediyor', done: 'Tamamlandı' };
   const priMap    = { high: 'Yüksek', normal: 'Normal', low: 'Düşük' };
-  const catMap    = { genel: 'Genel', is: 'İş', kisisel: 'Kişisel', alisveris: 'Alışveriş', saglik: 'Sağlık' };
-
-  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const esc       = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const listLabel = id => { const l = allLists().find(x => x.id === id); return l ? `${l.emoji} ${l.name}` : id; };
 
   const rows = tasks.map(t => [
     esc(t.text),
     esc(statusMap[t.status] || t.status),
     esc(priMap[t.priority] || t.priority),
-    esc(catMap[t.category] || t.category),
+    esc(listLabel(t.category)),
     esc(t.deadline || ''),
     esc(t.reminder || ''),
     esc((t.tags || []).join(', ')),
     esc(t.notes || ''),
+    esc((t.subtasks || []).map(s => (s.done ? '✓ ' : '○ ') + s.text).join(' | ')),
     esc(t.createdAt ? t.createdAt.slice(0, 10) : ''),
   ].join(','));
 
@@ -2141,6 +2189,55 @@ function exportCSV() {
   a.download = `yapsak-bence-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function exportPrint() {
+  const statusIcon = { todo: '○', inprogress: '⏳', done: '✓' };
+  const priMap     = { high: '🔴 Yüksek', normal: '⚪ Normal', low: '🟢 Düşük' };
+  const listLabel  = id => { const l = allLists().find(x => x.id === id); return l ? `${l.emoji} ${l.name}` : id; };
+
+  const tableRows = tasks.map(t => `
+    <tr class="${t.status === 'done' ? 'done' : ''}">
+      <td style="text-align:center;width:24px">${statusIcon[t.status] || '○'}</td>
+      <td>${t.text}${t.notes ? `<br><small>${t.notes}</small>` : ''}${
+        (t.subtasks||[]).length
+          ? `<br><small class="subs">${(t.subtasks||[]).map(s=>(s.done?'✓ ':'○ ')+s.text).join(' · ')}</small>`
+          : ''}</td>
+      <td>${listLabel(t.category)}</td>
+      <td>${priMap[t.priority] || ''}</td>
+      <td>${t.deadline || ''}</td>
+      <td>${(t.tags||[]).join(', ')}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+    <title>Yapsak Bence — Görev Listesi</title>
+    <style>
+      body{font-family:system-ui,-apple-system,sans-serif;font-size:12px;color:#111;margin:28px}
+      h1{font-size:17px;margin:0 0 3px}
+      .sub{color:#666;font-size:11px;margin-bottom:18px}
+      table{border-collapse:collapse;width:100%}
+      th{background:#f4f4f4;text-align:left;padding:6px 8px;font-size:11px;border-bottom:2px solid #ddd}
+      td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top}
+      tr.done td{color:#aaa;text-decoration:line-through}
+      tr.done small{text-decoration:none}
+      small{color:#777;display:block;margin-top:2px}
+      small.subs{color:#999}
+      @media print{@page{margin:1.5cm}body{margin:0}}
+    </style></head><body>
+    <h1>📋 Yapsak Bence — Görev Listesi</h1>
+    <div class="sub">Tarih: ${new Date().toLocaleString('tr-TR')} &nbsp;·&nbsp; Toplam: ${tasks.length} görev &nbsp;·&nbsp; Tamamlanan: ${tasks.filter(t=>t.status==='done').length}</div>
+    <table>
+      <thead><tr><th></th><th>Görev</th><th>Liste</th><th>Öncelik</th><th>Son Tarih</th><th>Etiketler</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { alert('Açılır pencere engellendi. Tarayıcı ayarlarından izin verin.'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
 }
 
 // ---- Theme ----
@@ -2278,6 +2375,80 @@ function checkMissedReminders() {
   });
 }
 
+// ---- Agenda View ----
+function renderAgenda() {
+  const el = $('agenda-view');
+  if (!el) return;
+  el.innerHTML = '';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  let pool = tasks;
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    pool = pool.filter(t => t.text.toLowerCase().includes(q) || (t.tags || []).some(tag => tag.toLowerCase().includes(q)));
+  }
+  if (selectedList) pool = pool.filter(t => t.category === selectedList);
+
+  const overdue = pool.filter(t => t.deadline && t.deadline < todayStr && t.status !== 'done');
+  const noDate  = pool.filter(t => !t.deadline);
+
+  const dayGroups = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const ds = d.toISOString().split('T')[0];
+    dayGroups.push({ date: d, dateStr: ds, dayTasks: pool.filter(t => t.deadline === ds), idx: i });
+  }
+
+  const DAY_NAMES = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+
+  function mkGroup(headerHTML, taskArr, extraClass = '') {
+    const group = document.createElement('div');
+    group.className = 'agenda-group' + (extraClass ? ' ' + extraClass : '');
+    group.innerHTML = `<div class="agenda-date-header">${headerHTML}</div>`;
+    if (taskArr.length === 0) {
+      const e = document.createElement('div');
+      e.className = 'agenda-empty-day';
+      e.textContent = 'Görev yok';
+      group.appendChild(e);
+    } else {
+      const ul = document.createElement('ul');
+      ul.className = 'task-list agenda-list';
+      taskArr.filter(t => !isDone(t)).forEach(t => ul.appendChild(makeTaskItem(t)));
+      taskArr.filter(t =>  isDone(t)).forEach(t => ul.appendChild(makeTaskItem(t)));
+      group.appendChild(ul);
+    }
+    return group;
+  }
+
+  if (overdue.length) {
+    el.appendChild(mkGroup(
+      `<span class="agenda-date-label agenda-label-overdue">⚠ Gecikmiş</span><span class="agenda-count">${overdue.length}</span>`,
+      overdue, 'agenda-overdue'
+    ));
+  }
+
+  dayGroups.forEach(({ date, dayTasks, idx }) => {
+    if (dayTasks.length === 0 && idx > 0) return;
+    const label = idx === 0 ? 'Bugün' : idx === 1 ? 'Yarın' : DAY_NAMES[date.getDay()];
+    const sub   = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+    el.appendChild(mkGroup(
+      `<div><span class="agenda-date-label">${label}</span><span class="agenda-date-sub">${sub}</span></div><span class="agenda-count">${dayTasks.length || ''}</span>`,
+      dayTasks, idx === 0 ? 'agenda-today' : ''
+    ));
+  });
+
+  if (noDate.length) {
+    el.appendChild(mkGroup(
+      `<span class="agenda-date-label">📋 Tarihi yok</span><span class="agenda-count">${noDate.length}</span>`,
+      noDate
+    ));
+  }
+}
+
 // ---- View switch ----
 function switchView(v) {
   view = v;
@@ -2285,8 +2456,10 @@ function switchView(v) {
   listView.classList.toggle('hidden',           v !== 'list');
   kanbanView.classList.toggle('hidden',         v !== 'kanban');
   $('calendar-view').classList.toggle('hidden', v !== 'calendar');
+  $('agenda-view').classList.toggle('hidden',   v !== 'agenda');
   $('filters').classList.toggle('hidden',       v !== 'list');
   if (v === 'calendar') renderCalendar();
+  else if (v === 'agenda') renderAgenda();
   else render();
 }
 
@@ -3664,6 +3837,9 @@ $('stg-notif').addEventListener('change', e => {
     saveSettings();
   }
 });
+$('stg-export-csv').addEventListener('click', () => { closeSettings(); exportCSV(); });
+$('stg-export-print').addEventListener('click', () => { closeSettings(); exportPrint(); });
+
 // Accent color swatches
 document.querySelectorAll('.accent-swatch').forEach(s => {
   s.addEventListener('click', () => {

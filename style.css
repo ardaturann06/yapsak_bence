@@ -1469,6 +1469,26 @@ select.modal-input {
 .pomo-controls .btn { flex: 1; justify-content: center; font-size: 0.82rem; padding: 8px; }
 .pomo-session-info { text-align: center; font-size: 0.72rem; color: var(--text-muted); padding: 6px 12px 12px; }
 
+/* ========== AGENDA VIEW ========== */
+#agenda-view { padding: 8px 0 80px; overflow-y: auto; }
+.agenda-group { margin-bottom: 4px; }
+.agenda-date-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px 6px;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg);
+}
+.agenda-group.agenda-today .agenda-date-header { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.agenda-group.agenda-overdue .agenda-date-header { background: color-mix(in srgb, var(--high) 8%, var(--bg)); }
+.agenda-date-label { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.agenda-label-overdue { color: var(--high); }
+.agenda-group.agenda-today .agenda-date-label { color: var(--accent); }
+.agenda-date-sub { font-size: 0.74rem; color: var(--text-muted); margin-left: 6px; font-weight: 400; }
+.agenda-count { font-size: 0.72rem; color: var(--text-muted); background: var(--surface2); padding: 1px 7px; border-radius: 99px; min-width: 20px; text-align: center; }
+.agenda-empty-day { font-size: 0.78rem; color: var(--text-muted); padding: 6px 16px 10px; opacity: 0.6; }
+.agenda-list { border-top: 1px solid var(--border); }
+.agenda-list .task-item:last-child { border-bottom: 1px solid var(--border); }
+
 /* ========== CALENDAR VIEW ========== */
 .cal-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -1651,6 +1671,8 @@ select.modal-input {
   font-size: 0.78rem; color: var(--text-muted);
 }
 .settings-field .select { width: 100%; }
+.settings-export-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.settings-export-row .btn { flex: 1; justify-content: center; min-width: 120px; gap: 6px; }
 
 /* Accent color swatches */
 .accent-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1872,11 +1894,17 @@ select.modal-input {
 .list-chip-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list-chip-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
 .list-chip:hover .list-chip-actions { opacity: 1; }
-.list-chip-edit, .list-chip-del { font-size: 0.9rem; padding: 1px 4px; border-radius: 4px; line-height: 1; }
+.list-chip-edit, .list-chip-del, .list-chip-hide { font-size: 0.9rem; padding: 1px 4px; border-radius: 4px; line-height: 1; }
 .list-chip-edit:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
 .list-chip-del:hover  { background: color-mix(in srgb, var(--high)   20%, transparent); color: var(--high); }
+.list-chip-hide:hover { background: var(--surface3); }
 .list-chip-add { border: 1.5px dashed var(--accent); color: var(--accent); background: transparent; justify-content: center; margin-top: 8px; border-radius: var(--radius-sm); }
 .list-chip-add:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.sidebar-hidden-section { margin-top: 12px; padding: 8px 4px 0; border-top: 1px solid var(--border); }
+.sidebar-hidden-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; padding: 0 8px; }
+.sidebar-hidden-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-radius: var(--radius-sm); color: var(--text-muted); font-size: 0.82rem; opacity: 0.6; }
+.list-chip-restore { font-size: 0.88rem; padding: 1px 6px; border-radius: 4px; border: none; background: transparent; color: var(--accent); cursor: pointer; opacity: 0.7; }
+.list-chip-restore:hover { opacity: 1; background: color-mix(in srgb, var(--accent) 15%, transparent); }
 
 /* ========== CREATE LIST MODAL ========== */
 .create-list-overlay { position: fixed; inset: 0; z-index: 9600; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); }
